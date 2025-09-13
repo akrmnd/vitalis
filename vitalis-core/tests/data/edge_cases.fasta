@@ -1,0 +1,20 @@
+>empty_sequence Description here
+
+>only_newlines
+
+
+>single_base
+A
+>numbers_and_special 12345 !@#$%
+ATCGATCG
+>lowercase_only
+atcgatcg
+>mixed_whitespace
+ATCG ATCG	ATCG
+ATCG
+>very_long_header This is a very long header with lots of information that might be found in a real FASTA file including organism name, gene ID, chromosomal location, and other annotations
+ATCGATCG
+>unicode_in_header γ-globin gene
+ATCGATCG
+>ambiguous_bases IUPAC ambiguity codes
+ATCGRYSWKMBDHVN

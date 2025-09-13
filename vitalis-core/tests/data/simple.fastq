@@ -1,0 +1,16 @@
+@read1 Test read 1
+ATCGATCGATCG
++
+IIIIIIIIIIII
+@read2 Test read 2 with lower quality
+ATCGATCGATCGATCG
++
+BBBBBBBBBBBBBBBB
+@read3 Read with N bases
+ATCGNNNNATCG
++
+IIII!!!!IIII
+@read4 Read with variable quality
+TTTTTTTTTTTT
++
+IIIHHHGGGFFF
