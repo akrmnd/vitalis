@@ -13,3 +13,7 @@ export interface SequenceInputData {
   content: string;
   format: 'fasta' | 'fastq';
 }
+
+export interface WindowResponse {
+  bases: string;
+}
