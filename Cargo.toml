@@ -1,0 +1,9 @@
+[workspace]
+members = ["vitalis-core"]
+resolver = "2"
+
+[workspace.package]
+authors = ["akrmnd"]
+edition = "2021"
+license = "MIT"
+version = "0.1.0"
