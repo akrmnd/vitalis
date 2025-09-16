@@ -89,12 +89,8 @@ pub fn get_meta(seq_id: String) -> Result<SequenceMeta, String> {
     }
 }
 
-/// Get sequence window (optimized for large files)
-pub fn get_window(seq_id: String, start: usize, end: usize) -> Result<WindowResponse, String> {
-    let storage = STORAGE.lock().map_err(|e| e.to_string())?;
-    let bases = storage.get_window(&seq_id, start, end)?;
-    Ok(WindowResponse { bases })
-}
+// REMOVED: Old get_window implementation moved to new layered architecture
+// Use application::get_window instead
 
 /// Calculate basic statistics (backward compatible interface)
 pub fn stats(seq_id: String) -> Result<SequenceStats, String> {
