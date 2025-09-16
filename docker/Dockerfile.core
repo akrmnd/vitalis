@@ -1,0 +1,36 @@
+# Dockerfile for Vitalis Core Backend
+FROM rust:1.89
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    libssl-dev \
+    pkg-config \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install additional Rust tools
+RUN rustup component add clippy rustfmt
+
+WORKDIR /workspace
+
+# Copy vitalis-core files only
+COPY vitalis-core/Cargo.toml ./
+COPY vitalis-core/Cargo.lock ./
+COPY vitalis-core/benches ./benches
+
+# Create dummy src files to cache dependencies
+RUN mkdir -p src && \
+    echo "fn main() {}" > src/main.rs && \
+    echo "pub fn dummy() {}" > src/lib.rs
+
+# Build dependencies (this layer will be cached)
+RUN cargo build
+RUN cargo build --release
+
+# Remove dummy files
+RUN rm -rf src
+
+ENV RUST_LOG=debug
+ENV CARGO_HOME=/usr/local/cargo
+
+CMD ["cargo", "test"]
