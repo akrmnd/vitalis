@@ -288,9 +288,18 @@ impl FileSequenceRepository {
         start: usize,
         end: usize,
     ) -> Result<String, StorageError> {
-        if start >= end || end > offset.length {
+        // Handle edge cases consistently with memory implementation
+        if start >= offset.length {
             return Err(StorageError::InvalidRange(start, end));
         }
+        
+        // Allow start >= end, return empty string
+        if start >= end {
+            return Ok(String::new());
+        }
+        
+        // Clamp end to sequence length
+        let end = end.min(offset.length);
 
         let mut file = File::open(path)?;
         let mut reader = BufReader::new(file);
@@ -310,6 +319,7 @@ impl FileSequenceRepository {
             }
 
             let trimmed = line.trim();
+            // Skip header lines and empty lines
             if trimmed.starts_with('>')
                 || trimmed.starts_with('@')
                 || trimmed.starts_with('+')
@@ -318,9 +328,10 @@ impl FileSequenceRepository {
                 continue;
             }
 
+            // Process each character in the line
             for ch in trimmed.chars() {
                 if current_pos >= start && current_pos < end {
-                    result.push(ch);
+                    result.push(ch.to_ascii_uppercase());
                 }
                 current_pos += 1;
                 if current_pos >= end {
@@ -382,10 +393,20 @@ impl SequenceRepository for FileSequenceRepository {
     fn get_window(&self, seq_id: &str, start: usize, end: usize) -> Result<String, Self::Error> {
         match self.sequences.get(seq_id) {
             Some(SequenceSource::Memory(seq)) => {
-                if start >= end || end > seq.len() {
+                // Handle edge cases consistently
+                if start >= seq.len() {
                     return Err(StorageError::InvalidRange(start, end));
                 }
-                Ok(seq[start..end].to_string())
+                
+                // Allow start >= end, return empty string
+                if start >= end {
+                    return Ok(String::new());
+                }
+                
+                // Clamp end to sequence length
+                let end = end.min(seq.len());
+                // Convert to uppercase for consistency
+                Ok(seq[start..end].to_ascii_uppercase())
             }
             Some(SequenceSource::File { path, offset }) => {
                 self.read_file_window(path, offset, start, end)
