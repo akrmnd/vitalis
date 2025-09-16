@@ -1,9 +1,12 @@
-use crate::storage::SequenceStorage;
-use crate::stats::{calculate_detailed_stats, calculate_window_stats, DetailedStats, WindowStats};
-use crate::Topology;
+// Application layer - Tauri commands and use cases
+use crate::domain::{
+    DetailedStats, SequenceAnalysisService, SequenceRepository, Topology, WindowStats,
+};
+use crate::infrastructure::FileSequenceRepository;
+use crate::services::StatsServiceImpl;
 use serde::{Deserialize, Serialize};
-use std::sync::Mutex;
 use std::path::Path;
+use std::sync::Mutex;
 
 // Response types for Tauri commands
 #[derive(Debug, Serialize, Deserialize)]
@@ -53,37 +56,54 @@ pub struct ImportFromFileRequest {
     pub format: String,
 }
 
-// Global storage (thread-safe)
+// Global service instance (thread-safe)
+type ServiceType = SequenceAnalysisService<FileSequenceRepository, StatsServiceImpl>;
+
 lazy_static::lazy_static! {
-    static ref STORAGE: Mutex<SequenceStorage> = Mutex::new(SequenceStorage::new());
+    static ref SERVICE: Mutex<ServiceType> = Mutex::new(
+        SequenceAnalysisService::new(
+            FileSequenceRepository::new(),
+            StatsServiceImpl::new()
+        )
+    );
 }
 
 /// Parse and import sequences from text content
 pub fn parse_and_import(text: String, fmt: String) -> Result<ImportResponse, String> {
-    let mut storage = STORAGE.lock().map_err(|e| e.to_string())?;
-    let seq_id = storage.import_from_text(&text, &fmt)?;
+    let mut service = SERVICE.lock().map_err(|e| e.to_string())?;
+    let repository = service.get_repository_mut();
+    let seq_id = repository
+        .import_from_text(&text, &fmt)
+        .map_err(|e| e.to_string())?;
     Ok(ImportResponse { seq_id })
 }
 
 /// Import sequence from file path (for large files)
 pub fn import_from_file(request: ImportFromFileRequest) -> Result<ImportResponse, String> {
-    let mut storage = STORAGE.lock().map_err(|e| e.to_string())?;
+    let mut service = SERVICE.lock().map_err(|e| e.to_string())?;
+    let repository = service.get_repository_mut();
     let path = Path::new(&request.file_path);
-    let seq_id = storage.import_from_file(path, &request.format)?;
+    let seq_id = repository
+        .import_from_file(path, &request.format)
+        .map_err(|e| e.to_string())?;
     Ok(ImportResponse { seq_id })
 }
 
 /// Get sequence metadata
 pub fn get_meta(seq_id: String) -> Result<SequenceMeta, String> {
-    let storage = STORAGE.lock().map_err(|e| e.to_string())?;
+    let service = SERVICE.lock().map_err(|e| e.to_string())?;
+    let repository = service.get_repository();
 
-    match storage.get_metadata(&seq_id) {
+    match repository.get_metadata(&seq_id) {
         Some(meta) => Ok(SequenceMeta {
             id: meta.id.clone(),
             name: meta.name.clone(),
             length: meta.length,
             topology: meta.topology.clone(),
-            file_path: meta.file_path.as_ref().map(|p| p.to_string_lossy().to_string()),
+            file_path: meta
+                .file_path
+                .as_ref()
+                .map(|p| p.to_string_lossy().to_string()),
         }),
         None => Err(format!("Sequence not found: {}", seq_id)),
     }
@@ -91,17 +111,20 @@ pub fn get_meta(seq_id: String) -> Result<SequenceMeta, String> {
 
 /// Get sequence window (optimized for large files)
 pub fn get_window(seq_id: String, start: usize, end: usize) -> Result<WindowResponse, String> {
-    let storage = STORAGE.lock().map_err(|e| e.to_string())?;
-    let bases = storage.get_window(&seq_id, start, end)?;
+    let service = SERVICE.lock().map_err(|e| e.to_string())?;
+    let repository = service.get_repository();
+    let bases = repository
+        .get_window(&seq_id, start, end)
+        .map_err(|e| e.to_string())?;
     Ok(WindowResponse { bases })
 }
 
 /// Calculate basic statistics (backward compatible interface)
 pub fn stats(seq_id: String) -> Result<SequenceStats, String> {
-    let storage = STORAGE.lock().map_err(|e| e.to_string())?;
-    let sequence = storage.get_full_sequence(&seq_id)?;
-
-    let detailed = calculate_detailed_stats(&sequence);
+    let mut service = SERVICE.lock().map_err(|e| e.to_string())?;
+    let detailed = service
+        .analyze_sequence(&seq_id)
+        .map_err(|e| e.to_string())?;
 
     Ok(SequenceStats {
         gc_overall: detailed.gc_percent,
@@ -112,32 +135,40 @@ pub fn stats(seq_id: String) -> Result<SequenceStats, String> {
 
 /// Calculate detailed statistics
 pub fn detailed_stats(seq_id: String) -> Result<DetailedStatsResponse, String> {
-    let storage = STORAGE.lock().map_err(|e| e.to_string())?;
-    let sequence = storage.get_full_sequence(&seq_id)?;
-
-    let detailed = calculate_detailed_stats(&sequence);
+    let mut service = SERVICE.lock().map_err(|e| e.to_string())?;
+    let detailed = service
+        .analyze_sequence(&seq_id)
+        .map_err(|e| e.to_string())?;
 
     Ok(DetailedStatsResponse { detailed })
 }
 
 /// Calculate windowed statistics
-pub fn window_stats(seq_id: String, window_size: usize, step: usize) -> Result<WindowStatsResponse, String> {
-    let storage = STORAGE.lock().map_err(|e| e.to_string())?;
-    let sequence = storage.get_full_sequence(&seq_id)?;
-
-    let windows = calculate_window_stats(&sequence, window_size, step);
+pub fn window_stats(
+    seq_id: String,
+    window_size: usize,
+    step: usize,
+) -> Result<WindowStatsResponse, String> {
+    let mut service = SERVICE.lock().map_err(|e| e.to_string())?;
+    let windows = service
+        .analyze_window(&seq_id, window_size, step)
+        .map_err(|e| e.to_string())?;
 
     Ok(WindowStatsResponse { windows })
 }
 
 /// Export sequence to text format
 pub fn export(seq_id: String, fmt: String) -> Result<ExportResponse, String> {
-    let storage = STORAGE.lock().map_err(|e| e.to_string())?;
+    let service = SERVICE.lock().map_err(|e| e.to_string())?;
+    let repository = service.get_repository();
 
-    let metadata = storage.get_metadata(&seq_id)
+    let metadata = repository
+        .get_metadata(&seq_id)
         .ok_or_else(|| format!("Sequence not found: {}", seq_id))?;
 
-    let sequence = storage.get_full_sequence(&seq_id)?;
+    let sequence = repository
+        .get_sequence(&seq_id)
+        .map_err(|e| e.to_string())?;
 
     let text = match fmt.as_str() {
         "fasta" => {
@@ -146,7 +177,10 @@ pub fn export(seq_id: String, fmt: String) -> Result<ExportResponse, String> {
         "fastq" => {
             // For FASTQ, we need quality scores - generate dummy if not available
             let dummy_quality = "I".repeat(sequence.len());
-            format!("@{} {}\n{}\n+\n{}\n", metadata.id, metadata.name, sequence, dummy_quality)
+            format!(
+                "@{} {}\n{}\n+\n{}\n",
+                metadata.id, metadata.name, sequence, dummy_quality
+            )
         }
         _ => return Err(format!("Unsupported export format: {}", fmt)),
     };
@@ -156,16 +190,18 @@ pub fn export(seq_id: String, fmt: String) -> Result<ExportResponse, String> {
 
 /// Get storage statistics (for debugging/monitoring)
 pub fn storage_info() -> Result<serde_json::Value, String> {
-    let _storage = STORAGE.lock().map_err(|e| e.to_string())?;
+    let _service = SERVICE.lock().map_err(|e| e.to_string())?;
 
     // For now, return basic info - can be expanded later
     Ok(serde_json::json!({
-        "status": "Storage system active",
+        "status": "Layered architecture active",
+        "architecture": "Domain-driven design with dependency inversion",
         "features": [
             "Memory-based sequences for small files",
             "File-based indexed access for large files",
             "Detailed statistics with entropy and complexity",
-            "Windowed analysis support"
+            "Windowed analysis support",
+            "Layered architecture with clean separation"
         ]
     }))
 }
@@ -232,8 +268,8 @@ mod tests {
         assert_eq!(windows.windows.len(), 4);
         assert_eq!(windows.windows[0].gc_percent, 100.0); // GGGG
         assert_eq!(windows.windows[1].gc_percent, 100.0); // CCCC
-        assert_eq!(windows.windows[2].gc_percent, 0.0);   // AAAA
-        assert_eq!(windows.windows[3].gc_percent, 0.0);   // TTTT
+        assert_eq!(windows.windows[2].gc_percent, 0.0); // AAAA
+        assert_eq!(windows.windows[3].gc_percent, 0.0); // TTTT
     }
 
     #[test]
@@ -275,6 +311,7 @@ mod tests {
     fn test_storage_info() {
         let info = storage_info().unwrap();
         assert!(info.get("status").is_some());
+        assert!(info.get("architecture").is_some());
         assert!(info.get("features").is_some());
     }
 }
