@@ -38,6 +38,8 @@ ENV/
 *.swo
 
 .claude
+.serena
+.playwright-mcp
 docs/
 
 target/

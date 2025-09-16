@@ -1,5 +1,5 @@
 [workspace]
-members = ["vitalis-core"]
+members = ["vitalis-core", "vitalis-app/src-tauri"]
 resolver = "2"
 
 [workspace.package]
