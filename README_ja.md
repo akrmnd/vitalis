@@ -1,22 +1,27 @@
-# Vitalis - バイオインフォマティクス API
+# Vitalis Studio
 
 _[English](README.md)で読む_
 
-遺伝子配列データの解析と可視化のための API
+TauriとRustで構築されたDNA/RNA配列解析・可視化デスクトップアプリケーション
 
 ## 機能
 
-- GENBANK ファイルのパース
-- FASTA ファイルのパース
-- 配列データの保存と管理
+- FASTA/FASTQ/GenBankファイルの解析とインポート
+- 大規模配列の効率的な処理
+- 配列検索と翻訳
+- ORF（オープンリーディングフレーム）検出
+- プライマー設計と解析
+- 制限酵素サイト解析
+- 配列の可視化（線形・環状）
+- 各種フォーマットへのエクスポート（FASTA、FASTQ、GenBank、SVG、PDF）
 
 ## 開発環境のセットアップ
 
 ### 前提条件
 
-- Python 3.12
-- Poetry
-- Docker と Docker Compose（オプション）
+- Node.js 18+
+- Rust 1.70+
+- npm または pnpm
 
 ### ローカル開発
 
@@ -30,114 +35,109 @@ _[English](README.md)で読む_
 2. 依存関係のインストール
 
    ```bash
-   poetry install
+   npm install
    ```
 
-3. 環境変数の設定
+3. 開発サーバーの起動
 
    ```bash
-   cp .env.example .env
-   # 必要に応じて.envファイルを編集
+   npm run tauri dev
    ```
 
-4. アプリケーションの実行
+### プロダクションビルド
 
-   ```bash
-   poetry run uvicorn src.interfaces.api.main:app --reload
-   ```
-
-5. API ドキュメントへのアクセス
-   ```
-   http://localhost:8000/docs
-   ```
-
-### Docker を使用した実行
-
-1. イメージのビルドと起動
-
-   ```bash
-   docker-compose up -d
-   ```
-
-2. API ドキュメントへのアクセス
-   ```
-   http://localhost:8000/docs
-   ```
-
-## 環境変数
-
-| 変数名       | 説明                          | デフォルト値              |
-| ------------ | ----------------------------- | ------------------------- |
-| API_HOST     | API ホスト                    | localhost                 |
-| API_PORT     | API ポート                    | 8000                      |
-| CORS_ORIGINS | CORS オリジン（カンマ区切り） | ["http://localhost:3000"] |
-| UPLOAD_DIR   | アップロードディレクトリ      | uploads                   |
-| OUTPUT_DIR   | 出力ディレクトリ              | output                    |
-
-## API エンドポイント
-
-- `GET /`: ウェルカムメッセージ
-- `POST /sequence/parse`: 配列ファイルのパース
-- `POST /sequence/save/genbank`: GENBANK レコードの保存
-- `POST /sequence/save/fasta`: FASTA レコードの保存
-
-詳細な API ドキュメントは `/docs` エンドポイントで確認できます。
+```bash
+npm run tauri build
+```
 
 ## プロジェクト構造
 
 ```
 vitalis/
-├── src/                      # ソースコード
-│   ├── application/          # アプリケーション層
-│   │   ├── dtos/             # データ転送オブジェクト
-│   │   └── services/         # サービス
-│   ├── config/               # 設定
-│   ├── domain/               # ドメイン層
-│   │   ├── models/           # ドメインモデル
-│   │   └── repositories/     # リポジトリインターフェース
-│   ├── infrastructure/       # インフラストラクチャ層
-│   │   ├── parsers/          # パーサー
-│   │   ├── repositories/     # リポジトリ実装
-│   │   └── utils/            # ユーティリティ
-│   └── interfaces/           # インターフェース層
-│       └── api/              # API
-├── tests/                    # テスト
-│   └── data/                 # テストデータ
-├── .env.example              # 環境変数サンプル
-├── .gitignore                # Gitの除外設定
-├── docker-compose.yml        # Docker Compose設定
-├── Dockerfile                # Dockerビルド設定
-├── poetry.lock               # Poetryロックファイル
-├── pyproject.toml            # Poetryプロジェクト設定
-└── README.md                 # プロジェクト説明
+├── src/                      # フロントエンド (React/TypeScript)
+│   ├── App.tsx              # メインアプリケーションコンポーネント
+│   ├── main.tsx             # アプリケーションエントリーポイント
+│   └── styles.css           # グローバルスタイル
+├── src-tauri/               # Tauriバックエンド
+│   ├── src/
+│   │   └── main.rs          # Tauriアプリケーションエントリー
+│   ├── Cargo.toml           # Rust依存関係
+│   └── tauri.conf.json      # Tauri設定
+├── vitalis-core/            # コアRustライブラリ
+│   ├── src/
+│   │   ├── lib.rs           # ライブラリルート
+│   │   ├── sequence.rs      # 配列データ構造
+│   │   ├── feature.rs       # 注釈タイプ
+│   │   ├── io/              # ファイルI/Oモジュール
+│   │   ├── analysis/        # 解析アルゴリズム
+│   │   └── visualization/   # レンダリングモジュール
+│   └── Cargo.toml           # コアライブラリ依存関係
+├── docs/                    # ドキュメント
+├── package.json             # Node.js依存関係
+├── tsconfig.json            # TypeScript設定
+├── vite.config.ts           # Vite設定
+└── README.md                # このファイル
 ```
 
 ## 技術スタック
 
-- **FastAPI**: 高速な API フレームワーク
-- **Pydantic**: データバリデーションとシリアライゼーション
-- **pathlib.Path**: モダンなファイルパス操作
-- **Poetry**: 依存関係管理
-- **Docker**: コンテナ化
+### バックエンド
+- **Rust**: コアライブラリ (`vitalis-core`)
+- **Tauri**: デスクトップアプリケーションフレームワーク
+- **noodles**: バイオインフォマティクスファイル形式（FASTA/FASTQ）
+- **SQLite**: ローカルデータストレージ
+
+### フロントエンド
+- **React**: UIフレームワーク
+- **TypeScript**: 型安全性
+- **Vite**: ビルドツール
+
+## コアAPI
+
+### 配列I/O
+- `parse_and_import`: ファイルから配列をインポート
+- `export`: 各種フォーマットへの配列エクスポート
+
+### 配列操作
+- `get_meta`: 配列メタデータの取得
+- `get_window`: 大規模ファイル用の配列ウィンドウ取得
+- `stats`: 配列統計の計算（GC%、N比率）
+
+### 解析
+- `search`: 配列内のパターン検索
+- `translate`: DNA/RNAからタンパク質への翻訳
+- `find_orf`: オープンリーディングフレームの検出
+- `restriction_sites`: 制限酵素サイトの検索
+
+### 可視化
+- `render_linear_svg`: 線形配列マップの生成
+- `render_plasmid_svg`: 環状プラスミドマップの生成
+- `export_pdf`: PDFへの可視化エクスポート
+
+## パフォーマンス目標
+
+- FASTA 100kb読み込み: < 400ms
+- 1Mbp内の10-mer検索: < 300ms
+- UIスクロール: 60fps
+- Undo/Redo: 即座に反映
 
 ## テスト実行
 
 ```bash
-# すべてのテストを実行
-poetry run pytest
+# Rustテスト
+cargo test
 
-# 特定のテストを実行
-poetry run pytest tests/test_genbank_parser.py
+# フロントエンドテスト
+npm test
+
+# リンティング
+cargo clippy
+npm run lint
+
+# 型チェック
+npm run typecheck
 ```
-
-## 貢献方法
-
-1. このリポジトリをフォーク
-2. 新しいブランチを作成 (`git checkout -b feature/amazing-feature`)
-3. 変更をコミット (`git commit -m 'Add some amazing feature'`)
-4. ブランチをプッシュ (`git push origin feature/amazing-feature`)
-5. プルリクエストを作成
 
 ## ライセンス
 
-このプロジェクトは MIT ライセンスの下で公開されています。
+このプロジェクトはMITライセンスの下で公開されています。

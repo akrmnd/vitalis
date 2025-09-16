@@ -39,3 +39,5 @@ ENV/
 
 .claude
 docs/
+
+target/

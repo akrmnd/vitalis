@@ -1,0 +1,13 @@
+>seq1 Simple DNA sequence
+ATCGATCGATCGATCG
+ATCGATCGATCGATCG
+>seq2 Another sequence with mixed case
+ATCGatcgatcgATCG
+>seq3 Sequence with N bases
+ATCGATCGNNNNATCG
+>empty_description
+AAAAAAAA
+>spaces_in_header multiple words here
+TTTTTTTT
+>long_sequence test sequence longer than 80bp
+ATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCG
