@@ -1,0 +1,57 @@
+# Dockerfile for CI/CD and comprehensive testing
+FROM rust:1.89
+
+# Install Node.js and npm
+RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && \
+    apt-get install -y nodejs
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    libssl-dev \
+    pkg-config \
+    libwebkit2gtk-4.0-dev \
+    libgtk-3-dev \
+    libayatana-appindicator3-dev \
+    librsvg2-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Rust tools for comprehensive testing
+RUN rustup component add clippy rustfmt
+RUN cargo install cargo-tarpaulin cargo-audit
+
+# Install additional tools for CI
+RUN cargo install cargo-nextest --locked
+
+WORKDIR /workspace
+
+# Copy package files for dependency caching
+COPY package*.json ./
+COPY vitalis-app/package*.json ./vitalis-app/
+
+# Install npm dependencies
+RUN npm install
+RUN cd vitalis-app && npm install
+
+# Copy Cargo files for vitalis-core only (CI focuses on core library)
+COPY vitalis-core/Cargo.toml ./Cargo.toml
+COPY vitalis-core/Cargo.lock ./Cargo.lock
+
+# Create dummy src files to cache Rust dependencies
+RUN mkdir -p src && \
+    echo "fn main() {}" > src/main.rs && \
+    echo "pub fn dummy() {}" > src/lib.rs
+
+# Build dependencies (this layer will be cached)
+RUN cargo build
+RUN cargo build --release
+
+# Remove dummy files
+RUN rm -rf vitalis-core/src
+
+ENV RUST_LOG=info
+ENV CARGO_HOME=/usr/local/cargo
+ENV CI=true
+
+# Default to running comprehensive tests
+CMD ["sh", "-c", "cargo test --workspace && cargo clippy --all-targets --all-features -- -D warnings && cargo fmt --all -- --check"]

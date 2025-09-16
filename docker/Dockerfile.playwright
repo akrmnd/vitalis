@@ -1,0 +1,32 @@
+# Dockerfile for Playwright E2E Testing
+FROM mcr.microsoft.com/playwright:v1.40.0-focal
+
+# Install Node.js (Playwright image includes it, but ensure we have the right version)
+RUN apt-get update && apt-get install -y \
+    curl \
+    && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
+    && apt-get install -y nodejs \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /workspace
+
+# Copy package files for dependency caching
+COPY package*.json ./
+COPY vitalis-app/package*.json ./vitalis-app/
+
+# Install npm dependencies
+RUN npm install
+RUN cd vitalis-app && npm install
+
+# Install Playwright browsers (they're pre-installed in the base image, but ensure they're up to date)
+RUN cd vitalis-app && npx playwright install
+
+# Set environment for headless testing
+ENV NODE_ENV=test
+ENV PWTEST_SKIP_TEST_OUTPUT=1
+ENV CI=true
+
+WORKDIR /workspace/vitalis-app
+
+# Default command
+CMD ["npm", "run", "test:e2e"]
