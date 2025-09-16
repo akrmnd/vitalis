@@ -11,13 +11,13 @@ use thiserror::Error;
 pub enum ParseError {
     #[error("Invalid format: {0}")]
     InvalidFormat(String),
-    
+
     #[error("Missing required field: {0}")]
     MissingField(String),
-    
+
     #[error("Length mismatch: {0}")]
     LengthMismatch(String),
-    
+
     #[error("IO error: {0}")]
     IoError(#[from] std::io::Error),
 }
