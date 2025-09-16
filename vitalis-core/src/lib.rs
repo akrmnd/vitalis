@@ -1,32 +1,20 @@
+// Layered Architecture modules
+pub mod application;
+pub mod domain;
+pub mod infrastructure;
+pub mod services;
+
+// Legacy modules for backward compatibility (will be phased out)
 pub mod io;
-pub mod commands;
+pub mod stats;
+pub mod storage;
 
-use serde::{Deserialize, Serialize};
+// Re-export domain types for public API
+pub use domain::{BaseCount, DetailedStats, Range, Topology, WindowStats};
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub enum Topology {
-    Linear,
-    Circular,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub struct Range {
-    pub start: usize,
-    pub end: usize,
-}
-
-impl Range {
-    pub fn new(start: usize, end: usize) -> Self {
-        Self { start, end }
-    }
-    
-    pub fn len(&self) -> usize {
-        self.end - self.start
-    }
-}
-
-// Re-export commands for Tauri
-pub use commands::{
-    parse_and_import, get_meta, get_window, stats, export,
-    ImportResponse, SequenceMeta, SequenceStats, WindowResponse, ExportResponse,
+// Re-export application layer commands for Tauri
+pub use application::{
+    detailed_stats, export, get_meta, get_window, import_from_file, parse_and_import, stats,
+    storage_info, window_stats, DetailedStatsResponse, ExportResponse, ImportFromFileRequest,
+    ImportResponse, SequenceMeta, SequenceStats, WindowResponse, WindowStatsResponse,
 };
