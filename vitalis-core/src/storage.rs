@@ -210,10 +210,18 @@ impl SequenceStorage {
             return Err("Start position exceeds sequence length".to_string());
         }
 
+        // Allow start >= end, return empty string
+        if start >= end {
+            return Ok(String::new());
+        }
+
         let end = end.min(metadata.length);
 
         match self.sources.get(seq_id) {
-            Some(SequenceSource::Memory(seq)) => Ok(seq[start..end].to_string()),
+            Some(SequenceSource::Memory(seq)) => {
+                // Convert to uppercase for consistency
+                Ok(seq[start..end].to_ascii_uppercase())
+            }
             Some(SequenceSource::File(path, offsets)) => {
                 self.read_window_from_file(path, offsets, start, end)
             }
