@@ -51,6 +51,66 @@ pub struct WindowStatsResponse {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
+pub struct BasicStats {
+    pub length: usize,
+    pub gc_percent: f64,
+    pub at_percent: f64,
+    pub n_percent: f64,
+    pub gc_skew: f64,
+    pub at_skew: f64,
+    pub entropy: f64,
+    pub complexity: f64,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct BaseCountResponse {
+    pub a: usize,
+    pub t: usize,
+    pub g: usize,
+    pub c: usize,
+    pub n: usize,
+    pub other: usize,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct CodonUsageResponse {
+    pub codon_counts: std::collections::HashMap<String, usize>,
+    pub codon_frequencies: std::collections::HashMap<String, f64>,
+    pub amino_acid_counts: std::collections::HashMap<char, usize>,
+    pub start_codons: usize,
+    pub stop_codons: usize,
+    pub rare_codons: Vec<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct QualityStatsResponse {
+    pub mean_quality: f64,
+    pub median_quality: f64,
+    pub min_quality: u8,
+    pub max_quality: u8,
+    pub q20_bases: usize,
+    pub q30_bases: usize,
+    pub quality_distribution: std::collections::HashMap<u8, usize>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct DetailedStatsEnhancedResponse {
+    pub basic: BasicStats,
+    pub base_counts: BaseCountResponse,
+    pub dinucleotide_counts: std::collections::HashMap<String, usize>,
+    pub codon_usage: Option<CodonUsageResponse>,
+    pub quality_stats: Option<QualityStatsResponse>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct WindowStatsItem {
+    pub position: usize,
+    pub window_size: usize,
+    pub gc_percent: f64,
+    pub entropy: f64,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
 pub struct ImportFromFileRequest {
     pub file_path: String,
     pub format: String,
@@ -143,18 +203,78 @@ pub fn detailed_stats(seq_id: String) -> Result<DetailedStatsResponse, String> {
     Ok(DetailedStatsResponse { detailed })
 }
 
-/// Calculate windowed statistics
+/// Calculate detailed statistics with enhanced features
+pub fn detailed_stats_enhanced(seq_id: String) -> Result<DetailedStatsEnhancedResponse, String> {
+    let mut service = SERVICE.lock().map_err(|e| e.to_string())?;
+    let detailed = service
+        .analyze_sequence(&seq_id)
+        .map_err(|e| e.to_string())?;
+
+    Ok(DetailedStatsEnhancedResponse {
+        basic: BasicStats {
+            length: detailed.length,
+            gc_percent: detailed.gc_percent,
+            at_percent: detailed.at_percent,
+            n_percent: detailed.n_percent,
+            gc_skew: detailed.gc_skew,
+            at_skew: detailed.at_skew,
+            entropy: detailed.entropy,
+            complexity: detailed.complexity,
+        },
+        base_counts: BaseCountResponse {
+            a: detailed.base_counts.a,
+            t: detailed.base_counts.t,
+            g: detailed.base_counts.g,
+            c: detailed.base_counts.c,
+            n: detailed.base_counts.n,
+            other: detailed.base_counts.other,
+        },
+        dinucleotide_counts: detailed.dinucleotide_counts,
+        codon_usage: detailed.codon_usage.map(|cu| CodonUsageResponse {
+            codon_counts: cu.codon_counts,
+            codon_frequencies: cu.codon_frequencies,
+            amino_acid_counts: cu.amino_acid_counts,
+            start_codons: cu.start_codons,
+            stop_codons: cu.stop_codons,
+            rare_codons: cu.rare_codons,
+        }),
+        quality_stats: detailed.quality_stats.map(|qs| QualityStatsResponse {
+            mean_quality: qs.mean_quality,
+            median_quality: qs.median_quality,
+            min_quality: qs.min_quality,
+            max_quality: qs.max_quality,
+            q20_bases: qs.q20_bases,
+            q30_bases: qs.q30_bases,
+            quality_distribution: qs.quality_distribution,
+        }),
+    })
+}
+
+/// Calculate window statistics for visualization
 pub fn window_stats(
     seq_id: String,
     window_size: usize,
     step: usize,
-) -> Result<WindowStatsResponse, String> {
-    let mut service = SERVICE.lock().map_err(|e| e.to_string())?;
-    let windows = service
-        .analyze_window(&seq_id, window_size, step)
+) -> Result<Vec<WindowStatsItem>, String> {
+    let service = SERVICE.lock().map_err(|e| e.to_string())?;
+    let repository = service.get_repository();
+
+    // Get full sequence for now (could be optimized for large sequences)
+    let sequence = repository
+        .get_window(&seq_id, 0, usize::MAX)
         .map_err(|e| e.to_string())?;
 
-    Ok(WindowStatsResponse { windows })
+    let stats = crate::stats::calculate_window_stats(&sequence, window_size, step);
+
+    Ok(stats
+        .into_iter()
+        .map(|ws| WindowStatsItem {
+            position: ws.position,
+            window_size: ws.window_size,
+            gc_percent: ws.gc_percent,
+            entropy: ws.entropy,
+        })
+        .collect())
 }
 
 /// Export sequence to text format
@@ -265,11 +385,11 @@ mod tests {
         let result = parse_and_import(fasta_content, "fasta".to_string()).unwrap();
 
         let windows = window_stats(result.seq_id, 4, 4).unwrap();
-        assert_eq!(windows.windows.len(), 4);
-        assert_eq!(windows.windows[0].gc_percent, 100.0); // GGGG
-        assert_eq!(windows.windows[1].gc_percent, 100.0); // CCCC
-        assert_eq!(windows.windows[2].gc_percent, 0.0); // AAAA
-        assert_eq!(windows.windows[3].gc_percent, 0.0); // TTTT
+        assert_eq!(windows.len(), 4);
+        assert_eq!(windows[0].gc_percent, 100.0); // GGGG
+        assert_eq!(windows[1].gc_percent, 100.0); // CCCC
+        assert_eq!(windows[2].gc_percent, 0.0); // AAAA
+        assert_eq!(windows[3].gc_percent, 0.0); // TTTT
     }
 
     #[test]

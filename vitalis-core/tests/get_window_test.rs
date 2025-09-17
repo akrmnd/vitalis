@@ -1,6 +1,8 @@
-use vitalis_core::application::{get_window, parse_and_import, import_from_file, ImportFromFileRequest};
 use std::io::Write;
 use tempfile::NamedTempFile;
+use vitalis_core::application::{
+    get_window, import_from_file, parse_and_import, ImportFromFileRequest,
+};
 
 #[test]
 fn test_get_window_basic() {
@@ -38,7 +40,7 @@ fn test_get_window_invalid_ranges() {
     let result_err = get_window(result.seq_id.clone(), 8, 10);
     assert!(result_err.is_err());
     let error_msg = result_err.unwrap_err();
-    assert!(error_msg.contains("Start position exceeds") || error_msg.contains("InvalidRange"));
+    assert!(error_msg.contains("Invalid range"));
 
     // Test start >= end (should return empty)
     let window = get_window(result.seq_id.clone(), 5, 5).unwrap();
@@ -79,7 +81,7 @@ fn test_get_window_large_sequence_memory() {
     assert_eq!(window.bases, "A".repeat(100));
 
     let window = get_window(result.seq_id.clone(), 250, 350).unwrap();
-    assert_eq!(window.bases, "A".repeat(250) + &"T".repeat(100));
+    assert_eq!(window.bases, "A".repeat(100));
 
     let window = get_window(result.seq_id.clone(), 900, 1000).unwrap();
     assert_eq!(window.bases, "T".repeat(100));
@@ -99,7 +101,7 @@ fn test_get_window_file_based_sequence() {
     writeln!(temp_file, "ATCGATCGATCGATCG").unwrap(); // 16 bases
     writeln!(temp_file, "GCTAGCTAGCTAGCTA").unwrap(); // 16 bases
     writeln!(temp_file, "TTAATTAATTAATTAA").unwrap(); // 16 bases
-    // Total: 48 bases
+                                                      // Total: 48 bases
 
     let request = ImportFromFileRequest {
         file_path: temp_file.path().to_string_lossy().to_string(),
@@ -119,7 +121,7 @@ fn test_get_window_file_based_sequence() {
     assert_eq!(window.bases, "GCTAGCTAGCTAGCTA"); // Exactly second line
 
     let window = get_window(result.seq_id.clone(), 30, 40).unwrap();
-    assert_eq!(window.bases, "GCTTAATTAA"); // Cross to third line
+    assert_eq!(window.bases, "TATTAATTAA"); // Cross to third line
 
     let window = get_window(result.seq_id, 40, 48).unwrap();
     assert_eq!(window.bases, "TTAATTAA"); // End of sequence
@@ -134,7 +136,7 @@ fn test_get_window_multiline_sequences() {
     writeln!(temp_file, "TTTTTTTTTT").unwrap(); // 10 T's
     writeln!(temp_file, "GGGGGGGGGG").unwrap(); // 10 G's
     writeln!(temp_file, "CCCCCCCCCC").unwrap(); // 10 C's
-    // Total: 40 bases
+                                                // Total: 40 bases
 
     let request = ImportFromFileRequest {
         file_path: temp_file.path().to_string_lossy().to_string(),
@@ -145,7 +147,7 @@ fn test_get_window_multiline_sequences() {
 
     // Test windows that span multiple lines
     let window = get_window(result.seq_id.clone(), 5, 15).unwrap();
-    assert_eq!(window.bases, "AAAAATTTTTT"); // A's to T's
+    assert_eq!(window.bases, "AAAAATTTTT"); // A's to T's
 
     let window = get_window(result.seq_id.clone(), 18, 32).unwrap();
     assert_eq!(window.bases, "TTGGGGGGGGGGCC"); // T's to G's to C's
@@ -190,7 +192,11 @@ fn test_get_window_performance_large_file() {
     let elapsed = start.elapsed();
 
     // Should complete within reasonable time (< 100ms for this size)
-    assert!(elapsed.as_millis() < 100, "Window access too slow: {:?}", elapsed);
+    assert!(
+        elapsed.as_millis() < 100,
+        "Window access too slow: {:?}",
+        elapsed
+    );
 }
 
 #[test]
@@ -237,20 +243,16 @@ fn test_get_window_consistency_memory_vs_file() {
     let file_result = import_from_file(request).unwrap();
 
     // Test same windows on both
-    let test_cases = vec![
-        (0, 8),
-        (8, 16),
-        (16, 24),
-        (24, 32),
-        (5, 15),
-        (10, 20),
-    ];
+    let test_cases = vec![(0, 8), (8, 16), (16, 24), (24, 32), (5, 15), (10, 20)];
 
     for (start, end) in test_cases {
         let mem_window = get_window(mem_result.seq_id.clone(), start, end).unwrap();
         let file_window = get_window(file_result.seq_id.clone(), start, end).unwrap();
 
-        assert_eq!(mem_window.bases, file_window.bases,
-                  "Mismatch at window [{}, {})", start, end);
+        assert_eq!(
+            mem_window.bases, file_window.bases,
+            "Mismatch at window [{}, {})",
+            start, end
+        );
     }
 }

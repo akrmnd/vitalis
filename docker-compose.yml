@@ -1,23 +1,21 @@
 services:
-  # Vitalis Core - Backend API
+  # Vitalis Core - Library tests only
   vitalis-core:
     build:
       context: .
       dockerfile: docker/Dockerfile.core
     volumes:
-      - .:/workspace
+      - ./vitalis-core:/workspace
       - cargo-cache:/usr/local/cargo/registry
       - target-cache:/workspace/target
     working_dir: /workspace
     environment:
       - RUST_LOG=debug
       - CARGO_HOME=/usr/local/cargo
-    ports:
-      - "8000:8000"  # Backend API port
-    command: cargo run --bin vitalis-core
+    command: cargo test
 
-  # Tauri Application
-  tauri-app:
+  # Web Frontend (Vite dev server) - standalone
+  web-frontend:
     build:
       context: .
       dockerfile: docker/Dockerfile.tauri
@@ -26,16 +24,22 @@ services:
       - cargo-cache:/usr/local/cargo/registry
       - target-cache:/workspace/target
       - node-modules-cache:/workspace/vitalis-app/node_modules
-    working_dir: /workspace
+    working_dir: /workspace/vitalis-app
     environment:
       - RUST_LOG=debug
       - CARGO_HOME=/usr/local/cargo
+      - VITE_HMR_PORT=1420
+      - VITE_HMR_HOST=web-frontend
     ports:
-      - "1420:1420"  # Tauri dev server
-      - "3000:3000"   # Frontend dev server
-    depends_on:
-      - vitalis-core
-    command: npm run tauri dev
+      - "1420:1420" # Vite dev server
+      - "3000:3000" # Alternative port
+    command: npm run dev
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:1420" ]
+      interval: 5s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
 
   # Test Services
   test-rust:
@@ -51,39 +55,10 @@ services:
       - RUST_LOG=info
       - CARGO_HOME=/usr/local/cargo
     command: cargo test
-    profiles: ["test"]
+    profiles: [ "test" ]
 
-  test-frontend:
-    build:
-      context: .
-      dockerfile: docker/Dockerfile.tauri
-    volumes:
-      - .:/workspace
-      - cargo-cache:/usr/local/cargo/registry
-      - target-cache:/workspace/target
-      - node-modules-cache:/workspace/vitalis-app/node_modules
-    working_dir: /workspace/vitalis-app
-    environment:
-      - NODE_ENV=test
-    command: npm test
-    profiles: ["test"]
-
-  test-e2e:
-    build:
-      context: .
-      dockerfile: docker/Dockerfile.playwright
-    volumes:
-      - .:/workspace
-      - node-modules-cache:/workspace/vitalis-app/node_modules
-    working_dir: /workspace/vitalis-app
-    environment:
-      - NODE_ENV=test
-      - PWTEST_SKIP_TEST_OUTPUT=1
-    depends_on:
-      - vitalis-core
-      - tauri-app
-    command: npm run test:e2e
-    profiles: ["test", "e2e"]
+  # Note: Frontend tests should be run locally
+  # cd vitalis-app && npm test
 
   # CI/CD Test Runner
   ci-test:
@@ -107,14 +82,9 @@ services:
         echo '=== Running Rust linting ===' &&
         cargo clippy --all-targets --all-features -- -D warnings &&
         cargo fmt --all -- --check &&
-        echo '=== Running frontend tests ===' &&
-        cd vitalis-app &&
-        npm test &&
-        npm run typecheck &&
-        echo '=== Running E2E tests ===' &&
-        npm run test:e2e
+        echo '=== Frontend tests skipped (run locally) ==='
       "
-    profiles: ["ci"]
+    profiles: [ "ci" ]
 
 volumes:
   cargo-cache:

@@ -3,9 +3,9 @@
 
 use tauri::Manager;
 use vitalis_core::{
-    parse_and_import, get_window, stats, detailed_stats, window_stats,
+    parse_and_import, get_window, stats, detailed_stats, detailed_stats_enhanced, window_stats,
     import_from_file, export, get_meta, storage_info,
-    ImportFromFileRequest, ExportResponse, ImportResponse
+    ImportFromFileRequest, ExportResponse, ImportResponse, DetailedStatsEnhancedResponse, WindowStatsItem
 };
 
 // Tauri command handlers - vitalis-coreのAPI関数をラップ
@@ -35,11 +35,16 @@ async fn tauri_detailed_stats(seq_id: String) -> Result<vitalis_core::DetailedSt
 }
 
 #[tauri::command]
+async fn tauri_detailed_stats_enhanced(seq_id: String) -> Result<DetailedStatsEnhancedResponse, String> {
+    detailed_stats_enhanced(seq_id).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
 async fn tauri_window_stats(
     seq_id: String,
     window_size: usize,
     step: usize
-) -> Result<vitalis_core::WindowStatsResponse, String> {
+) -> Result<Vec<WindowStatsItem>, String> {
     window_stats(seq_id, window_size, step).map_err(|e| e.to_string())
 }
 
@@ -67,6 +72,7 @@ fn main() {
             tauri_get_window,
             tauri_stats,
             tauri_detailed_stats,
+            tauri_detailed_stats_enhanced,
             tauri_window_stats,
             tauri_export,
             tauri_get_meta,

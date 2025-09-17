@@ -230,9 +230,10 @@ mod tests {
     #[test]
     fn test_memory_storage() {
         let fasta = ">test\nATCGATCG";
-        
+
         // Use new layered architecture for import
-        let result = crate::application::parse_and_import(fasta.to_string(), "fasta".to_string()).unwrap();
+        let result =
+            crate::application::parse_and_import(fasta.to_string(), "fasta".to_string()).unwrap();
         let seq_id = result.seq_id;
 
         // Use new layered architecture for window access
@@ -251,7 +252,8 @@ mod tests {
 
         // Read the file content and import using new architecture
         let file_content = std::fs::read_to_string(temp_file.path()).unwrap();
-        let result = crate::application::parse_and_import(file_content, "fasta".to_string()).unwrap();
+        let result =
+            crate::application::parse_and_import(file_content, "fasta".to_string()).unwrap();
         let seq_id = result.seq_id;
 
         // Test window access using new layered architecture

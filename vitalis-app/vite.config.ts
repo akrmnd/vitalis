@@ -13,6 +13,8 @@ export default defineConfig(async () => ({
   server: {
     port: 1420,
     strictPort: true,
+    host: true, // Allow external connections (Docker-friendly)
+    allowedHosts: ['localhost', '127.0.0.1', 'web-frontend'], // Allow Docker service name
     watch: {
       // 3. tell vite to ignore watching `src-tauri`
       ignored: ["**/src-tauri/**"],

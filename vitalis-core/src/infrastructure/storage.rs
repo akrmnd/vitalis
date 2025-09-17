@@ -292,12 +292,12 @@ impl FileSequenceRepository {
         if start >= offset.length {
             return Err(StorageError::InvalidRange(start, end));
         }
-        
+
         // Allow start >= end, return empty string
         if start >= end {
             return Ok(String::new());
         }
-        
+
         // Clamp end to sequence length
         let end = end.min(offset.length);
 
@@ -397,12 +397,12 @@ impl SequenceRepository for FileSequenceRepository {
                 if start >= seq.len() {
                     return Err(StorageError::InvalidRange(start, end));
                 }
-                
+
                 // Allow start >= end, return empty string
                 if start >= end {
                     return Ok(String::new());
                 }
-                
+
                 // Clamp end to sequence length
                 let end = end.min(seq.len());
                 // Convert to uppercase for consistency

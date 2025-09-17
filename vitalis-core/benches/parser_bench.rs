@@ -1,8 +1,8 @@
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
 use std::time::Duration;
+use vitalis_core::application::{get_window, parse_and_import};
 use vitalis_core::io::{parse_fasta, parse_fastq};
 use vitalis_core::stats::calculate_detailed_stats;
-use vitalis_core::storage::SequenceStorage;
 
 fn generate_fasta(length: usize) -> String {
     let mut result = String::new();
@@ -108,22 +108,22 @@ fn bench_window_access(c: &mut Criterion) {
     let mut group = c.benchmark_group("window_access");
     group.measurement_time(Duration::from_secs(10));
 
-    // Set up storage with test sequence
-    let mut storage = SequenceStorage::new();
+    // Set up test sequence using current application API
     let test_sequence = "ATCG".repeat(25000); // 100KB sequence
     let fasta_content = format!(">test\n{}", test_sequence);
-    let seq_id = storage.import_from_text(&fasta_content, "fasta").unwrap();
+    let import_result = parse_and_import(fasta_content, "fasta".to_string()).unwrap();
+    let seq_id = import_result.seq_id;
 
     group.bench_function("get_window_1kb", |b| {
         b.iter(|| {
-            let result = storage.get_window(black_box(&seq_id), black_box(0), black_box(1000));
+            let result = get_window(black_box(seq_id.clone()), black_box(0), black_box(1000));
             black_box(result)
         })
     });
 
     group.bench_function("get_window_10kb", |b| {
         b.iter(|| {
-            let result = storage.get_window(black_box(&seq_id), black_box(0), black_box(10000));
+            let result = get_window(black_box(seq_id.clone()), black_box(0), black_box(10000));
             black_box(result)
         })
     });
@@ -140,8 +140,7 @@ fn bench_integration_test(c: &mut Criterion) {
 
     group.bench_function("100kb_fasta_parse_and_import", |b| {
         b.iter(|| {
-            let mut storage = SequenceStorage::new();
-            let result = storage.import_from_text(black_box(&large_fasta), "fasta");
+            let result = parse_and_import(black_box(large_fasta.clone()), "fasta".to_string());
             black_box(result)
         })
     });

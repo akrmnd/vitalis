@@ -59,6 +59,9 @@ pub struct DetailedStats {
     pub at_skew: f64,
     pub entropy: f64,
     pub complexity: f64,
+    // Enhanced statistics fields
+    pub codon_usage: Option<CodonUsage>,
+    pub quality_stats: Option<QualityStats>,
 }
 
 /// 塩基カウント
@@ -96,6 +99,29 @@ pub struct WindowStats {
     pub window_size: usize,
     pub gc_percent: f64,
     pub entropy: f64,
+}
+
+/// コドン使用統計
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CodonUsage {
+    pub codon_counts: HashMap<String, usize>,
+    pub codon_frequencies: HashMap<String, f64>,
+    pub amino_acid_counts: HashMap<char, usize>,
+    pub start_codons: usize,
+    pub stop_codons: usize,
+    pub rare_codons: Vec<String>,
+}
+
+/// 品質スコア統計（FASTQ用）
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct QualityStats {
+    pub mean_quality: f64,
+    pub median_quality: f64,
+    pub min_quality: u8,
+    pub max_quality: u8,
+    pub q20_bases: usize,
+    pub q30_bases: usize,
+    pub quality_distribution: HashMap<u8, usize>,
 }
 
 // ドメインレイヤーでのRepositoryトレイト定義（依存性の逆転）
