@@ -56,9 +56,26 @@ export interface ParseResult {
   seq_id: string;
 }
 
+export interface SequenceInfo {
+  id: string;
+  name: string;
+  length: number;
+  preview: string;
+}
+
+export interface ParsePreviewResponse {
+  sequences: SequenceInfo[];
+  format: string;
+}
+
 export interface SequenceInputData {
   content: string;
   format: 'fasta' | 'fastq';
+}
+
+export interface ImportFromFileRequest {
+  file_path: string;
+  format: string;
 }
 
 export interface WindowResponse {

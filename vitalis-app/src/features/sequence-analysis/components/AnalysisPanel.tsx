@@ -72,10 +72,10 @@ export const AnalysisPanel = ({ sequenceId, onGetStatistics, loading = false }: 
           <div className="flex gap-3">
             <button
               onClick={onGetStatistics}
-              disabled={loading}
+              disabled={loading || (metadata && metadata.length === 0)}
               className="px-6 py-3 bg-green-600 text-white font-medium rounded-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
             >
-              {loading ? "Calculating..." : "Get Statistics"}
+              {loading ? "Calculating..." : metadata && metadata.length === 0 ? "Empty Sequence" : "Get Statistics"}
             </button>
 
             <button

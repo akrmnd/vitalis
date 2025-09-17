@@ -3,9 +3,10 @@
 
 use tauri::Manager;
 use vitalis_core::{
-    parse_and_import, get_window, stats, detailed_stats, detailed_stats_enhanced, window_stats,
-    import_from_file, export, get_meta, storage_info,
-    ImportFromFileRequest, ExportResponse, ImportResponse, DetailedStatsEnhancedResponse, WindowStatsItem
+    detailed_stats, detailed_stats_enhanced, export, get_meta, get_window, import_from_file,
+    parse_and_import, parse_preview, import_sequence, stats, storage_info, window_stats,
+    DetailedStatsEnhancedResponse, ExportResponse, ImportFromFileRequest, ImportResponse,
+    ParsePreviewResponse, WindowStatsItem,
 };
 
 // Tauri command handlers - vitalis-coreのAPI関数をラップ
@@ -15,12 +16,30 @@ async fn tauri_parse_and_import(content: String, format: String) -> Result<Impor
 }
 
 #[tauri::command]
+async fn tauri_parse_preview(content: String, format: String) -> Result<ParsePreviewResponse, String> {
+    parse_preview(content, format).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn tauri_import_sequence(
+    content: String,
+    format: String,
+    sequence_index: usize,
+) -> Result<ImportResponse, String> {
+    import_sequence(content, format, sequence_index).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
 async fn tauri_import_from_file(request: ImportFromFileRequest) -> Result<ImportResponse, String> {
     import_from_file(request).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
-async fn tauri_get_window(seq_id: String, start: usize, end: usize) -> Result<vitalis_core::WindowResponse, String> {
+async fn tauri_get_window(
+    seq_id: String,
+    start: usize,
+    end: usize,
+) -> Result<vitalis_core::WindowResponse, String> {
     get_window(seq_id, start, end).map_err(|e| e.to_string())
 }
 
@@ -30,12 +49,16 @@ async fn tauri_stats(seq_id: String) -> Result<vitalis_core::SequenceStats, Stri
 }
 
 #[tauri::command]
-async fn tauri_detailed_stats(seq_id: String) -> Result<vitalis_core::DetailedStatsResponse, String> {
+async fn tauri_detailed_stats(
+    seq_id: String,
+) -> Result<vitalis_core::DetailedStatsResponse, String> {
     detailed_stats(seq_id).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
-async fn tauri_detailed_stats_enhanced(seq_id: String) -> Result<DetailedStatsEnhancedResponse, String> {
+async fn tauri_detailed_stats_enhanced(
+    seq_id: String,
+) -> Result<DetailedStatsEnhancedResponse, String> {
     detailed_stats_enhanced(seq_id).map_err(|e| e.to_string())
 }
 
@@ -43,7 +66,7 @@ async fn tauri_detailed_stats_enhanced(seq_id: String) -> Result<DetailedStatsEn
 async fn tauri_window_stats(
     seq_id: String,
     window_size: usize,
-    step: usize
+    step: usize,
 ) -> Result<Vec<WindowStatsItem>, String> {
     window_stats(seq_id, window_size, step).map_err(|e| e.to_string())
 }
@@ -63,11 +86,20 @@ async fn tauri_storage_info() -> Result<serde_json::Value, String> {
     storage_info().map_err(|e| e.to_string())
 }
 
+#[tauri::command]
+async fn tauri_read_file(file_path: String) -> Result<String, String> {
+    std::fs::read_to_string(&file_path).map_err(|e| e.to_string())
+}
+
 fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
+        .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_fs::init())
         .invoke_handler(tauri::generate_handler![
             tauri_parse_and_import,
+            tauri_parse_preview,
+            tauri_import_sequence,
             tauri_import_from_file,
             tauri_get_window,
             tauri_stats,
@@ -76,7 +108,8 @@ fn main() {
             tauri_window_stats,
             tauri_export,
             tauri_get_meta,
-            tauri_storage_info
+            tauri_storage_info,
+            tauri_read_file
         ])
         .setup(|app| {
             #[cfg(debug_assertions)]
