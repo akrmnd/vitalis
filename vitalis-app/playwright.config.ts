@@ -18,10 +18,16 @@ export default defineConfig({
   /* Shared settings for all the projects below. See https://playwright.dev/docs/api/testing-helpers. */
   use: {
     /* Base URL to use in actions like `await page.goto('/')`. */
-    baseURL: 'http://localhost:1420',
+    baseURL: process.env.BASE_URL || 'http://localhost:1420',
     /* Collect trace when retrying the failed test. See https://playwright.dev/docs/trace-viewer */
     trace: 'on-first-retry',
+    /* Add timeout for slower Docker environments */
+    actionTimeout: 30000,
+    navigationTimeout: 30000,
   },
+
+  /* Global timeout for Docker environments */
+  timeout: 60000,
 
   /* Configure projects for major browsers */
   projects: [
@@ -62,9 +68,9 @@ export default defineConfig({
   ],
 
   /* Run your local dev server before starting the tests */
-  webServer: {
+  webServer: process.env.CI ? undefined : {
     command: 'npm run dev',
-    url: 'http://localhost:1420',
-    reuseExistingServer: !process.env.CI,
+    url: process.env.BASE_URL || 'http://localhost:1420',
+    reuseExistingServer: true, // Always reuse existing server in all environments
   },
 });
