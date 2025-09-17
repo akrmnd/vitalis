@@ -137,6 +137,8 @@ impl StatsService for StatsServiceImpl {
             at_skew,
             entropy,
             complexity,
+            codon_usage: None,   // Will be calculated separately if needed
+            quality_stats: None, // Will be added from FASTQ data if available
         }
     }
 
