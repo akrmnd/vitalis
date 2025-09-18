@@ -2,9 +2,10 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use tauri::Manager;
+use vitalis_core::application::{get_genbank_metadata, GenBankMetadata};
 use vitalis_core::{
     detailed_stats, detailed_stats_enhanced, export, get_meta, get_window, import_from_file,
-    parse_and_import, parse_preview, import_sequence, stats, storage_info, window_stats,
+    import_sequence, parse_and_import, parse_preview, stats, storage_info, window_stats,
     DetailedStatsEnhancedResponse, ExportResponse, ImportFromFileRequest, ImportResponse,
     ParsePreviewResponse, WindowStatsItem,
 };
@@ -16,7 +17,10 @@ async fn tauri_parse_and_import(content: String, format: String) -> Result<Impor
 }
 
 #[tauri::command]
-async fn tauri_parse_preview(content: String, format: String) -> Result<ParsePreviewResponse, String> {
+async fn tauri_parse_preview(
+    content: String,
+    format: String,
+) -> Result<ParsePreviewResponse, String> {
     parse_preview(content, format).map_err(|e| e.to_string())
 }
 
@@ -91,6 +95,11 @@ async fn tauri_read_file(file_path: String) -> Result<String, String> {
     std::fs::read_to_string(&file_path).map_err(|e| e.to_string())
 }
 
+#[tauri::command]
+async fn tauri_get_genbank_metadata(content: String) -> Result<GenBankMetadata, String> {
+    get_genbank_metadata(content).map_err(|e| e.to_string())
+}
+
 fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
@@ -109,7 +118,8 @@ fn main() {
             tauri_export,
             tauri_get_meta,
             tauri_storage_info,
-            tauri_read_file
+            tauri_read_file,
+            tauri_get_genbank_metadata
         ])
         .setup(|app| {
             #[cfg(debug_assertions)]

@@ -4,9 +4,12 @@ import { SequenceInputForm } from "./features/sequence-input/components/Sequence
 import { SequenceSelector } from "./features/sequence-input/components/SequenceSelector";
 import { AnalysisPanel } from "./features/sequence-analysis/components/AnalysisPanel";
 import { EnhancedStatisticsDisplay } from "./features/statistics/components/EnhancedStatisticsDisplay";
+import { GenBankMetadataViewer } from "./components/GenBankMetadataViewer";
 import { useSequenceParser } from "./features/sequence-analysis/hooks/useSequenceParser";
 import { useStatistics } from "./features/statistics/hooks/useStatistics";
 import { SequenceInputData } from "./types/sequence";
+import { GenBankMetadata } from "./types/genbank";
+import { tauriApi } from "./lib/tauri-api";
 
 // Tab Components
 const AnalyzeTab = ({
@@ -15,7 +18,7 @@ const AnalyzeTab = ({
   preview,
   currentInputData,
   statsLoading,
-  stats,
+  genbankMetadata,
   onSequenceSubmit,
   onSequenceSelect,
   onFileImport,
@@ -47,6 +50,10 @@ const AnalyzeTab = ({
         loading={statsLoading}
       />
     )}
+
+    {genbankMetadata && (
+      <GenBankMetadataViewer metadata={genbankMetadata} />
+    )}
   </div>
 );
 
@@ -66,18 +73,6 @@ const ResultsTab = ({ stats }: any) => (
   </div>
 );
 
-const GenBankTab = () => (
-  <div className="text-center py-12">
-    <div className="text-6xl mb-4">📁</div>
-    <h3 className="text-xl font-semibold text-gray-900 mb-2">GenBank Import</h3>
-    <p className="text-gray-600 mb-4">
-      GenBank format support is coming soon!
-    </p>
-    <div className="inline-block bg-yellow-100 text-yellow-800 px-4 py-2 rounded-lg">
-      🚧 Under Development
-    </div>
-  </div>
-);
 
 const RestrictionTab = () => (
   <div className="text-center py-12">
@@ -124,6 +119,7 @@ const SettingsTab = () => (
 
 function App() {
   const [activeTab, setActiveTab] = useState("analyze");
+  const [genbankMetadata, setGenbankMetadata] = useState<GenBankMetadata | null>(null);
 
   const {
     loading: parseLoading,
@@ -137,8 +133,22 @@ function App() {
   } = useSequenceParser();
   const { loading: statsLoading, stats, getStatistics } = useStatistics();
 
-  const handleSequenceSubmit = (data: SequenceInputData) => {
-    parsePreview(data);
+  const handleSequenceSubmit = async (data: SequenceInputData) => {
+    // Clear previous GenBank metadata
+    setGenbankMetadata(null);
+
+    // Parse preview for sequence selection
+    await parsePreview(data);
+
+    // If it's GenBank format, parse metadata
+    if (data.format === "genbank") {
+      try {
+        const metadata = await tauriApi.getGenBankMetadata(data.content);
+        setGenbankMetadata(metadata);
+      } catch (error) {
+        console.error("Failed to parse GenBank metadata:", error);
+      }
+    }
   };
 
   const handleSequenceSelect = (data: SequenceInputData, sequenceIndex: number) => {
@@ -146,7 +156,11 @@ function App() {
   };
 
   const handleFileImport = (filePath: string, format: string) => {
-    importFromFile(filePath, format);
+    importFromFile(filePath, format, (metadata) => {
+      if (format === "genbank") {
+        setGenbankMetadata(metadata);
+      }
+    });
   };
 
   const handleGetStatistics = () => {
@@ -167,6 +181,7 @@ function App() {
             currentInputData={currentInputData}
             statsLoading={statsLoading}
             stats={stats}
+            genbankMetadata={genbankMetadata}
             onSequenceSubmit={handleSequenceSubmit}
             onSequenceSelect={handleSequenceSelect}
             onFileImport={handleFileImport}
@@ -176,8 +191,6 @@ function App() {
         );
       case "results":
         return <ResultsTab stats={stats} />;
-      case "genbank":
-        return <GenBankTab />;
       case "restriction":
         return <RestrictionTab />;
       case "settings":
@@ -192,7 +205,7 @@ function App() {
       activeTab={activeTab}
       onTabChange={setActiveTab}
       hasResults={!!stats}
-      sequenceId={sequenceId}
+      sequenceId={sequenceId || undefined}
     >
       {renderTabContent()}
     </Layout>
