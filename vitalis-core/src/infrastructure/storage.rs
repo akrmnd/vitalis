@@ -28,15 +28,15 @@ struct ByteOffset {
 
 /// 配列のソース（メモリまたはファイル）
 #[derive(Debug, Clone)]
-enum SequenceSource {
+pub enum SequenceSource {
     Memory(String),
     File { path: PathBuf, offset: ByteOffset },
 }
 
 /// Infrastructure層でのRepositoryトレイト実装
 pub struct FileSequenceRepository {
-    sequences: HashMap<String, SequenceSource>,
-    metadata: HashMap<String, SequenceMetadata>,
+    pub sequences: HashMap<String, SequenceSource>,
+    pub metadata: HashMap<String, SequenceMetadata>,
     next_id: usize,
 }
 
@@ -49,13 +49,13 @@ impl FileSequenceRepository {
         }
     }
 
-    fn generate_id(&mut self) -> String {
+    pub fn generate_id(&mut self) -> String {
         let id = format!("seq_{}", self.next_id);
         self.next_id += 1;
         id
     }
 
-    fn parse_fasta(&self, content: &str) -> Result<Vec<Sequence>, StorageError> {
+    pub fn parse_fasta(&self, content: &str) -> Result<Vec<Sequence>, StorageError> {
         let mut sequences = Vec::new();
         let mut current_id = String::new();
         let mut current_name = String::new();
@@ -98,7 +98,7 @@ impl FileSequenceRepository {
         Ok(sequences)
     }
 
-    fn parse_fastq(&self, content: &str) -> Result<Vec<Sequence>, StorageError> {
+    pub fn parse_fastq(&self, content: &str) -> Result<Vec<Sequence>, StorageError> {
         let mut sequences = Vec::new();
         let lines: Vec<&str> = content.lines().collect();
 

@@ -65,8 +65,27 @@ export const SequenceViewer = ({ sequenceId, sequenceLength }: SequenceViewerPro
     loadSequenceWindow(clampedStart);
   };
 
-  const currentProgress = ((windowStart + WINDOW_SIZE) / sequenceLength) * 100;
+  const currentProgress = (Math.min(windowStart + WINDOW_SIZE, sequenceLength) / sequenceLength) * 100;
   const formattedLines = formatSequence(sequenceData);
+
+  // Handle empty sequence case
+  if (sequenceLength === 0) {
+    return (
+      <div className="bg-white rounded-lg border border-gray-200 p-6">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-xl font-semibold text-gray-900">Sequence Viewer</h3>
+          <div className="text-sm text-gray-600">Empty sequence (0 bases)</div>
+        </div>
+        <div className="p-8 text-center bg-gray-50 rounded-lg">
+          <div className="text-4xl mb-4">📝</div>
+          <h4 className="text-lg font-medium text-gray-900 mb-2">Empty Sequence</h4>
+          <p className="text-gray-600">
+            This sequence contains no bases. It might be an empty entry in the FASTA file.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   if (error) {
     return (
@@ -153,10 +172,10 @@ export const SequenceViewer = ({ sequenceId, sequenceLength }: SequenceViewerPro
           </div>
         )}
 
-        <div className="whitespace-pre-wrap">
+        <div className="font-mono text-sm">
           {formattedLines.map((line, index) => (
-            <div key={index} className="leading-6">
-              <span className="text-gray-500 mr-2">{line.split(': ')[0]}:</span>
+            <div key={index} className="leading-6 whitespace-nowrap">
+              <span className="text-gray-500 mr-2 inline-block w-16 text-right">{line.split(': ')[0]}:</span>
               <span className="text-gray-900">{line.split(': ')[1]}</span>
             </div>
           ))}

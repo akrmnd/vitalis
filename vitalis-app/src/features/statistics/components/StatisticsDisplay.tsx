@@ -1,8 +1,8 @@
-import { SequenceStats } from "../../../types/sequence";
+import { BasicStats } from "../../../types/sequence";
 import { StatCard } from "./StatCard";
 
 interface StatisticsDisplayProps {
-  stats: SequenceStats;
+  stats: BasicStats;
 }
 
 export const StatisticsDisplay = ({ stats }: StatisticsDisplayProps) => {

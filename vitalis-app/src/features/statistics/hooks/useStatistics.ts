@@ -1,10 +1,10 @@
 import { useState } from "react";
 import { tauriApi } from "../../../lib/tauri-api";
-import { SequenceStats } from "../../../types/sequence";
+import { DetailedStats } from "../../../types/sequence";
 
 export const useStatistics = () => {
   const [loading, setLoading] = useState(false);
-  const [stats, setStats] = useState<SequenceStats | null>(null);
+  const [stats, setStats] = useState<DetailedStats | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const getStatistics = async (sequenceId: string) => {

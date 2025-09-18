@@ -62,7 +62,7 @@ export const BaseCompositionChart = ({ baseCount }: BaseCompositionChartProps) =
               stroke="#E5E7EB"
               strokeWidth="8"
             />
-            {data.reduce((acc, item, index) => {
+            {data.reduce((acc, item) => {
               const angle = (item.percentage / 100) * 360;
               const startAngle = acc.currentAngle;
               const endAngle = startAngle + angle;
@@ -92,7 +92,7 @@ export const BaseCompositionChart = ({ baseCount }: BaseCompositionChartProps) =
 
               acc.currentAngle = endAngle;
               return acc;
-            }, { elements: [] as JSX.Element[], currentAngle: 0 }).elements}
+            }, { elements: [] as React.JSX.Element[], currentAngle: 0 }).elements}
           </svg>
         </div>
       </div>
