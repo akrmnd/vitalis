@@ -1,8 +1,7 @@
 import { useState, useCallback } from "react";
 import { open } from "@tauri-apps/plugin-dialog";
 import { useSequenceInput } from "../hooks/useSequenceInput";
-import { SequenceInputData, ImportFromFileRequest } from "../../../types/sequence";
-import { tauriApi } from "../../../lib/tauri-api";
+import { SequenceInputData } from "../../../types/sequence";
 
 interface SequenceInputFormProps {
   onSubmit: (data: SequenceInputData) => void;
@@ -11,7 +10,7 @@ interface SequenceInputFormProps {
 }
 
 export const SequenceInputForm = ({ onSubmit, onFileImport, loading = false }: SequenceInputFormProps) => {
-  const { sequence, setSequence, getInputData, isValid } = useSequenceInput();
+  const { sequence, format, setSequenceWithFormatDetection, getInputData, isValid } = useSequenceInput();
   const [fileLoading, setFileLoading] = useState(false);
   const [isDragOver, setIsDragOver] = useState(false);
 
@@ -28,7 +27,7 @@ export const SequenceInputForm = ({ onSubmit, onFileImport, loading = false }: S
         filters: [
           {
             name: "Sequence Files",
-            extensions: ["fasta", "fa", "fas", "fastq", "fq"]
+            extensions: ["fasta", "fa", "fas", "fastq", "fq", "gb", "gbk", "genbank"]
           },
           {
             name: "FASTA Files",
@@ -37,6 +36,10 @@ export const SequenceInputForm = ({ onSubmit, onFileImport, loading = false }: S
           {
             name: "FASTQ Files",
             extensions: ["fastq", "fq"]
+          },
+          {
+            name: "GenBank Files",
+            extensions: ["gb", "gbk", "genbank"]
           },
           {
             name: "All Files",
@@ -52,6 +55,8 @@ export const SequenceInputForm = ({ onSubmit, onFileImport, loading = false }: S
 
         if (extension && ["fastq", "fq"].includes(extension)) {
           format = "fastq";
+        } else if (extension && ["gb", "gbk", "genbank"].includes(extension)) {
+          format = "genbank";
         }
 
         if (onFileImport) {
@@ -91,25 +96,19 @@ export const SequenceInputForm = ({ onSubmit, onFileImport, loading = false }: S
 
     // Check if it's a valid sequence file
     const extension = file.name.split('.').pop()?.toLowerCase();
-    const validExtensions = ["fasta", "fa", "fas", "fastq", "fq"];
+    const validExtensions = ["fasta", "fa", "fas", "fastq", "fq", "gb", "gbk", "genbank"];
 
     if (!extension || !validExtensions.includes(extension)) {
-      alert("Please drop a valid sequence file (.fasta, .fa, .fas, .fastq, .fq)");
+      alert("Please drop a valid sequence file (.fasta, .fa, .fas, .fastq, .fq, .gb, .gbk, .genbank)");
       return;
     }
 
     try {
       setFileLoading(true);
 
-      // Auto-detect format from file extension
-      let format = "fasta"; // default
-      if (extension && ["fastq", "fq"].includes(extension)) {
-        format = "fastq";
-      }
-
-      if (onFileImport) {
-        onFileImport(file.path, format);
-      }
+      // TODO: Implement proper file path handling for drag & drop
+      // Web File API doesn't provide file.path, need to use Tauri's file handling
+      console.warn("Drag & drop file handling not yet implemented for:", file.name);
     } catch (error) {
       console.error("Error processing dropped file:", error);
     } finally {
@@ -139,7 +138,7 @@ export const SequenceInputForm = ({ onSubmit, onFileImport, loading = false }: S
           <p className="text-sm text-gray-600 mb-3">
             {isDragOver
               ? "Drop your sequence file here"
-              : "Drag & drop or import sequence file (FASTA, FASTQ)"
+              : "Drag & drop or import sequence file (FASTA, FASTQ, GenBank)"
             }
           </p>
           <button
@@ -162,12 +161,22 @@ export const SequenceInputForm = ({ onSubmit, onFileImport, loading = false }: S
 
         <textarea
           value={sequence}
-          onChange={(e) => setSequence(e.target.value)}
-          placeholder="Paste your FASTA sequence here..."
+          onChange={(e) => setSequenceWithFormatDetection(e.target.value)}
+          placeholder="Paste your sequence here (FASTA, FASTQ, or GenBank format)..."
           rows={10}
           className="w-full p-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-mono text-sm resize-none"
           disabled={loading || fileLoading}
         />
+        {sequence && (
+          <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+            <div className="flex items-center space-x-2">
+              <span className="text-sm font-medium text-blue-700">Detected Format:</span>
+              <span className="text-sm font-mono text-blue-900 bg-blue-100 px-2 py-1 rounded">
+                {format.toUpperCase()}
+              </span>
+            </div>
+          </div>
+        )}
         <button
           onClick={handleSubmit}
           disabled={loading || fileLoading || !isValid()}

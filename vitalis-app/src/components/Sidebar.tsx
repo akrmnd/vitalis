@@ -17,19 +17,13 @@ const navItems: NavItem[] = [
     id: "analyze",
     label: "Sequence Analysis",
     icon: "🧬",
-    description: "Import and analyze DNA/RNA sequences"
+    description: "Import and analyze sequences (FASTA/FASTQ/GenBank)"
   },
   {
     id: "results",
     label: "Results",
     icon: "📊",
     description: "View analysis results and statistics"
-  },
-  {
-    id: "genbank",
-    label: "GenBank",
-    icon: "📁",
-    description: "GenBank format import and analysis"
   },
   {
     id: "restriction",

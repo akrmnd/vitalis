@@ -70,7 +70,7 @@ export interface ParsePreviewResponse {
 
 export interface SequenceInputData {
   content: string;
-  format: 'fasta' | 'fastq';
+  format: 'fasta' | 'fastq' | 'genbank';
 }
 
 export interface ImportFromFileRequest {

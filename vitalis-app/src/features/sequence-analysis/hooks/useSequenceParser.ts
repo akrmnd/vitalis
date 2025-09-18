@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { tauriApi } from "../../../lib/tauri-api";
-import { SequenceInputData, ParsePreviewResponse, ImportFromFileRequest } from "../../../types/sequence";
+import { SequenceInputData, ParsePreviewResponse } from "../../../types/sequence";
 
 export const useSequenceParser = () => {
   const [loading, setLoading] = useState(false);
@@ -61,7 +61,7 @@ export const useSequenceParser = () => {
     }
   };
 
-  const importFromFile = async (filePath: string, format: string) => {
+  const importFromFile = async (filePath: string, format: string, onGenBankMetadata?: (metadata: any) => void) => {
     setLoading(true);
     setError(null);
 
@@ -72,8 +72,18 @@ export const useSequenceParser = () => {
       // Create input data from file content
       const data: SequenceInputData = {
         content: content,
-        format: format as 'fasta' | 'fastq'
+        format: format as 'fasta' | 'fastq' | 'genbank'
       };
+
+      // If it's GenBank format, parse metadata
+      if (format === "genbank" && onGenBankMetadata) {
+        try {
+          const metadata = await tauriApi.getGenBankMetadata(content);
+          onGenBankMetadata(metadata);
+        } catch (error) {
+          console.error("Failed to parse GenBank metadata:", error);
+        }
+      }
 
       // Use the same preview mechanism as text input
       const result = await tauriApi.parsePreview(data);

@@ -67,7 +67,6 @@ function getTabTitle(tab: string): string {
   const titles: Record<string, string> = {
     analyze: "Sequence Analysis",
     results: "Analysis Results",
-    genbank: "GenBank Import",
     restriction: "Restriction Sites",
     settings: "Settings"
   };
@@ -76,9 +75,8 @@ function getTabTitle(tab: string): string {
 
 function getTabDescription(tab: string): string {
   const descriptions: Record<string, string> = {
-    analyze: "Import and analyze DNA/RNA sequences from various formats",
+    analyze: "Import and analyze DNA/RNA sequences from various formats (FASTA/FASTQ/GenBank)",
     results: "View detailed analysis results and export data",
-    genbank: "Import and process GenBank format files",
     restriction: "Find and analyze restriction enzyme recognition sites",
     settings: "Configure application preferences and analysis parameters"
   };
