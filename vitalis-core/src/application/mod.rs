@@ -2,7 +2,7 @@
 use crate::domain::{
     DetailedStats, SequenceAnalysisService, SequenceRepository, Topology, WindowStats,
 };
-use crate::infrastructure::FileSequenceRepository;
+use crate::infrastructure::{FileSequenceRepository, GenBankParser};
 use crate::services::StatsServiceImpl;
 use serde::{Deserialize, Serialize};
 use std::path::Path;
@@ -15,12 +15,45 @@ pub struct ImportResponse {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
+pub struct SequenceInfo {
+    pub id: String,
+    pub name: String,
+    pub length: usize,
+    pub preview: String, // First 50 characters
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ParsePreviewResponse {
+    pub sequences: Vec<SequenceInfo>,
+    pub format: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
 pub struct SequenceMeta {
     pub id: String,
     pub name: String,
     pub length: usize,
     pub topology: Topology,
     pub file_path: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct GenBankMetadata {
+    pub accession: String,
+    pub version: String,
+    pub definition: String,
+    pub source: String,
+    pub organism: String,
+    pub length: usize,
+    pub topology: Topology,
+    pub features: Vec<GenBankFeatureInfo>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct GenBankFeatureInfo {
+    pub feature_type: String,
+    pub location: String,
+    pub qualifiers: std::collections::HashMap<String, String>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -138,6 +171,86 @@ pub fn parse_and_import(text: String, fmt: String) -> Result<ImportResponse, Str
     Ok(ImportResponse { seq_id })
 }
 
+/// Parse sequences and return preview without importing
+pub fn parse_preview(text: String, fmt: String) -> Result<ParsePreviewResponse, String> {
+    let service = SERVICE.lock().map_err(|e| e.to_string())?;
+    let repository = service.get_repository();
+
+    let sequences = match fmt.as_str() {
+        "fasta" => repository.parse_fasta(&text).map_err(|e| e.to_string())?,
+        "fastq" => repository.parse_fastq(&text).map_err(|e| e.to_string())?,
+        "genbank" => {
+            let parser = GenBankParser::new();
+            let record = parser.parse(&text).map_err(|e| e.to_string())?;
+            let sequence = parser.to_sequence(&record);
+            vec![sequence]
+        }
+        _ => return Err(format!("Unsupported format: {}", fmt)),
+    };
+
+    let sequence_info: Vec<SequenceInfo> = sequences
+        .iter()
+        .map(|seq| SequenceInfo {
+            id: seq.id.clone(),
+            name: seq.name.clone(),
+            length: seq.sequence.len(),
+            preview: seq.sequence.chars().take(50).collect(),
+        })
+        .collect();
+
+    Ok(ParsePreviewResponse {
+        sequences: sequence_info,
+        format: fmt,
+    })
+}
+
+/// Import a specific sequence by index from parsed content
+pub fn import_sequence(
+    text: String,
+    fmt: String,
+    sequence_index: usize,
+) -> Result<ImportResponse, String> {
+    let mut service = SERVICE.lock().map_err(|e| e.to_string())?;
+    let repository = service.get_repository_mut();
+
+    let sequences = match fmt.as_str() {
+        "fasta" => repository.parse_fasta(&text).map_err(|e| e.to_string())?,
+        "fastq" => repository.parse_fastq(&text).map_err(|e| e.to_string())?,
+        "genbank" => {
+            let parser = GenBankParser::new();
+            let record = parser.parse(&text).map_err(|e| e.to_string())?;
+            let sequence = parser.to_sequence(&record);
+            vec![sequence]
+        }
+        _ => return Err(format!("Unsupported format: {}", fmt)),
+    };
+
+    if sequence_index >= sequences.len() {
+        return Err("Sequence index out of range".to_string());
+    }
+
+    let sequence = &sequences[sequence_index];
+    let seq_id = repository.generate_id();
+
+    // Store in memory
+    repository.sequences.insert(
+        seq_id.clone(),
+        crate::infrastructure::storage::SequenceSource::Memory(sequence.sequence.clone()),
+    );
+    repository.metadata.insert(
+        seq_id.clone(),
+        crate::domain::SequenceMetadata {
+            id: sequence.id.clone(),
+            name: sequence.name.clone(),
+            length: sequence.sequence.len(),
+            topology: sequence.topology.clone(),
+            file_path: None,
+        },
+    );
+
+    Ok(ImportResponse { seq_id })
+}
+
 /// Import sequence from file path (for large files)
 pub fn import_from_file(request: ImportFromFileRequest) -> Result<ImportResponse, String> {
     let mut service = SERVICE.lock().map_err(|e| e.to_string())?;
@@ -167,6 +280,33 @@ pub fn get_meta(seq_id: String) -> Result<SequenceMeta, String> {
         }),
         None => Err(format!("Sequence not found: {}", seq_id)),
     }
+}
+
+/// Get GenBank metadata if sequence was imported from GenBank format
+pub fn get_genbank_metadata(text: String) -> Result<GenBankMetadata, String> {
+    let parser = GenBankParser::new();
+    let record = parser.parse(&text).map_err(|e| e.to_string())?;
+
+    let features = record
+        .features
+        .into_iter()
+        .map(|f| GenBankFeatureInfo {
+            feature_type: f.feature_type,
+            location: f.location,
+            qualifiers: f.qualifiers,
+        })
+        .collect();
+
+    Ok(GenBankMetadata {
+        accession: record.accession,
+        version: record.version,
+        definition: record.definition,
+        source: record.source,
+        organism: record.organism,
+        length: record.length,
+        topology: record.topology,
+        features,
+    })
 }
 
 /// Get sequence window (optimized for large files)

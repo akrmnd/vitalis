@@ -22,8 +22,7 @@ pub struct SequenceMetadata {
     pub file_path: Option<PathBuf>,
 }
 
-/// 配列の形状
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum Topology {
     Linear,
     Circular,
