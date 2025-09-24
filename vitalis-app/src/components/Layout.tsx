@@ -65,20 +65,18 @@ export const Layout = ({ children, activeTab = "analyze", onTabChange, hasResult
 
 function getTabTitle(tab: string): string {
   const titles: Record<string, string> = {
-    analyze: "Sequence Analysis",
-    results: "Analysis Results",
-    restriction: "Restriction Sites",
-    settings: "Settings"
+    import: "Import Sequences",
+    visualization: "Sequence View",
+    analysis: "Analysis Tools"
   };
   return titles[tab] || "Vitalis Studio";
 }
 
 function getTabDescription(tab: string): string {
   const descriptions: Record<string, string> = {
-    analyze: "Import and analyze DNA/RNA sequences from various formats (FASTA/FASTQ/GenBank)",
-    results: "View detailed analysis results and export data",
-    restriction: "Find and analyze restriction enzyme recognition sites",
-    settings: "Configure application preferences and analysis parameters"
+    import: "Import DNA/RNA sequences from FASTA, FASTQ, or GenBank formats",
+    visualization: "Interactive sequence visualization with feature annotations",
+    analysis: "Statistical analysis and sequence processing tools"
   };
   return descriptions[tab] || "DNA/RNA Sequence Analysis Tool";
 }

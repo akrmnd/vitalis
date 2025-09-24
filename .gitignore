@@ -37,6 +37,9 @@ ENV/
 *.swp
 *.swo
 
+# macOS
+.DS_Store
+
 .claude
 .serena
 .playwright-mcp
