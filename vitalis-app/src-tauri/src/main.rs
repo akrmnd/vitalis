@@ -6,9 +6,11 @@ use vitalis_core::application::{get_genbank_metadata, GenBankMetadata};
 use vitalis_core::{
     detailed_stats, detailed_stats_enhanced, export, get_meta, get_window, import_from_file,
     import_sequence, parse_and_import, parse_preview, stats, storage_info, window_stats,
+    design_primers, calculate_primer_tm, calculate_primer_gc, evaluate_primer_multiplex,
     DetailedStatsEnhancedResponse, ExportResponse, ImportFromFileRequest, ImportResponse,
     ParsePreviewResponse, WindowStatsItem,
 };
+use vitalis_core::domain::primer::{PrimerDesignParams, PrimerDesignResult};
 
 // Tauri command handlers - vitalis-coreのAPI関数をラップ
 #[tauri::command]
@@ -100,6 +102,34 @@ async fn tauri_get_genbank_metadata(content: String) -> Result<GenBankMetadata, 
     get_genbank_metadata(content).map_err(|e| e.to_string())
 }
 
+#[tauri::command]
+async fn tauri_design_primers(
+    seq_id: String,
+    start: usize,
+    end: usize,
+    params: Option<PrimerDesignParams>,
+) -> Result<PrimerDesignResult, String> {
+    design_primers(seq_id, start, end, params).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn tauri_calculate_primer_tm(sequence: String) -> Result<f32, String> {
+    calculate_primer_tm(sequence).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn tauri_calculate_primer_gc(sequence: String) -> Result<f32, String> {
+    calculate_primer_gc(sequence).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn tauri_evaluate_primer_multiplex(
+    seq_id: String,
+    primer_pairs: Vec<serde_json::Value>,
+) -> Result<serde_json::Value, String> {
+    evaluate_primer_multiplex(seq_id, primer_pairs).map_err(|e| e.to_string())
+}
+
 fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
@@ -119,7 +149,11 @@ fn main() {
             tauri_get_meta,
             tauri_storage_info,
             tauri_read_file,
-            tauri_get_genbank_metadata
+            tauri_get_genbank_metadata,
+            tauri_design_primers,
+            tauri_calculate_primer_tm,
+            tauri_calculate_primer_gc,
+            tauri_evaluate_primer_multiplex
         ])
         .setup(|app| {
             #[cfg(debug_assertions)]

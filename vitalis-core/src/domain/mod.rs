@@ -1,4 +1,6 @@
 // Domain layer - ビジネスロジックとエンティティ
+pub mod primer;
+
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::PathBuf;

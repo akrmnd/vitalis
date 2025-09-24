@@ -7,6 +7,7 @@ import { EnhancedStatisticsDisplay } from "./features/statistics/components/Enha
 import { GenBankMetadataViewer } from "./components/GenBankMetadataViewer";
 import { CircularGenomeVisualization } from "./components/CircularGenomeVisualization";
 import { SnapGeneStyleVisualization } from "./components/SnapGeneStyleVisualization";
+import PrimerDesign from "./components/PrimerDesign";
 import { useSequenceParser } from "./features/sequence-analysis/hooks/useSequenceParser";
 import { useStatistics } from "./features/statistics/hooks/useStatistics";
 import { SequenceInputData } from "./types/sequence";
@@ -247,6 +248,8 @@ function App() {
         );
       case "visualization":
         return <VisualizationTab sequenceId={sequenceId} genbankMetadata={genbankMetadata} />;
+      case "primer-design":
+        return <PrimerDesign sequenceId={sequenceId} />;
       case "analysis":
         return (
           <AnalysisTab
