@@ -14,28 +14,22 @@ interface NavItem {
 
 const navItems: NavItem[] = [
   {
-    id: "analyze",
-    label: "Sequence Analysis",
+    id: "import",
+    label: "Import",
+    icon: "📁",
+    description: "Import sequences (FASTA/FASTQ/GenBank)"
+  },
+  {
+    id: "visualization",
+    label: "Sequence View",
     icon: "🧬",
-    description: "Import and analyze sequences (FASTA/FASTQ/GenBank)"
+    description: "Interactive sequence visualization"
   },
   {
-    id: "results",
-    label: "Results",
+    id: "analysis",
+    label: "Analysis",
     icon: "📊",
-    description: "View analysis results and statistics"
-  },
-  {
-    id: "restriction",
-    label: "Restriction Sites",
-    icon: "✂️",
-    description: "Find restriction enzyme sites"
-  },
-  {
-    id: "settings",
-    label: "Settings",
-    icon: "⚙️",
-    description: "Application preferences"
+    description: "Statistics and analysis tools"
   }
 ];
 
