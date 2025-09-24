@@ -67,6 +67,7 @@ function getTabTitle(tab: string): string {
   const titles: Record<string, string> = {
     import: "Import Sequences",
     visualization: "Sequence View",
+    "primer-design": "Primer Design",
     analysis: "Analysis Tools"
   };
   return titles[tab] || "Vitalis Studio";
@@ -76,6 +77,7 @@ function getTabDescription(tab: string): string {
   const descriptions: Record<string, string> = {
     import: "Import DNA/RNA sequences from FASTA, FASTQ, or GenBank formats",
     visualization: "Interactive sequence visualization with feature annotations",
+    "primer-design": "Design PCR primers with Tm calculation and validation",
     analysis: "Statistical analysis and sequence processing tools"
   };
   return descriptions[tab] || "DNA/RNA Sequence Analysis Tool";

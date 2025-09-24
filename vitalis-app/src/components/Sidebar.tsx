@@ -26,6 +26,12 @@ const navItems: NavItem[] = [
     description: "Interactive sequence visualization"
   },
   {
+    id: "primer-design",
+    label: "Primer Design",
+    icon: "🔬",
+    description: "PCR primer design and analysis"
+  },
+  {
     id: "analysis",
     label: "Analysis",
     icon: "📊",
