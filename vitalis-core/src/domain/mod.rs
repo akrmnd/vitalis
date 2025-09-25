@@ -1,5 +1,7 @@
 // Domain layer - ビジネスロジックとエンティティ
 pub mod primer;
+pub mod thermodynamics;
+pub mod thermodynamic_calculator;
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
