@@ -1,4 +1,4 @@
-use super::thermodynamics::{DNAThermodynamicsDatabase, ThermodynamicParams, SaltCorrectionParams};
+use super::thermodynamics::{DNAThermodynamicsDatabase, SaltCorrectionParams, ThermodynamicParams};
 use serde::{Deserialize, Serialize};
 
 /// 改良された熱力学計算エンジン（NNDB 2024対応）
@@ -27,10 +27,10 @@ pub struct CalculationConditions {
 impl Default for CalculationConditions {
     fn default() -> Self {
         Self {
-            temperature_k: 310.15,  // 37°C
-            primer_concentration: 1e-6,  // 1 μM
+            temperature_k: 310.15,      // 37°C
+            primer_concentration: 1e-6, // 1 μM
             apply_symmetry_correction: true,
-            molecular_crowding: false,  // デフォルトはオフ
+            molecular_crowding: false, // デフォルトはオフ
             mismatch_penalty_weight: 1.0,
         }
     }
@@ -108,7 +108,10 @@ impl ThermodynamicCalculator {
     }
 
     /// 包括的な熱力学計算（NNDB 2024の全機能を活用）
-    pub fn calculate_comprehensive(&self, sequence: &str) -> Result<ComprehensiveThermodynamicResult, ThermodynamicError> {
+    pub fn calculate_comprehensive(
+        &self,
+        sequence: &str,
+    ) -> Result<ComprehensiveThermodynamicResult, ThermodynamicError> {
         if sequence.len() < 2 {
             return Err(ThermodynamicError::SequenceTooShort);
         }
@@ -129,24 +132,17 @@ impl ThermodynamicCalculator {
 
         // 1. 最近隣効果の計算
         for i in 0..sequence.len().saturating_sub(1) {
-            let dinucleotide = &sequence[i..i+2];
-            let reverse_complement = self.reverse_complement_dinucleotide(dinucleotide)?;
-            let key = format!("{}/{}", dinucleotide, reverse_complement);
+            let dinucleotide = &sequence[i..i + 2];
 
-            if let Some(params) = self.database.get_nearest_neighbor(&key) {
+            // find_dinucleotide_params already handles Watson-Crick complement lookup
+            if let Some(params) = self.find_dinucleotide_params(dinucleotide) {
                 total_delta_h += params.delta_h;
                 total_delta_s += params.delta_s;
                 breakdown.nearest_neighbor += params.delta_h;
             } else {
-                // 代替キーパターンを試行
-                let alt_key = format!("{}/{}", reverse_complement, dinucleotide);
-                if let Some(params) = self.database.get_nearest_neighbor(&alt_key) {
-                    total_delta_h += params.delta_h;
-                    total_delta_s += params.delta_s;
-                    breakdown.nearest_neighbor += params.delta_h;
-                } else {
-                    return Err(ThermodynamicError::UnknownDinucleotide(dinucleotide.to_string()));
-                }
+                return Err(ThermodynamicError::UnknownDinucleotide(
+                    dinucleotide.to_string(),
+                ));
             }
         }
 
@@ -179,7 +175,7 @@ impl ThermodynamicCalculator {
         let salt_correction_entropy = self.apply_advanced_salt_correction(
             total_delta_s,
             sequence.len(),
-            &self.database.salt_correction
+            &self.database.salt_correction,
         );
         breakdown.salt_correction = salt_correction_entropy - total_delta_s;
         total_delta_s = salt_correction_entropy;
@@ -198,7 +194,8 @@ impl ThermodynamicCalculator {
 
         // 6. 最終計算
         let delta_g = self.calculate_delta_g_from_components(total_delta_h, total_delta_s);
-        let melting_temperature = self.calculate_melting_temperature(total_delta_h, total_delta_s);
+        let melting_temperature =
+            self.calculate_melting_temperature(total_delta_h, total_delta_s, sequence.len());
         let formation_probability = self.calculate_formation_probability_internal(delta_g);
 
         Ok(ComprehensiveThermodynamicResult {
@@ -214,7 +211,11 @@ impl ThermodynamicCalculator {
 
     /// 最近接法によるTm値計算（改良版）
     pub fn calculate_tm_nearest_neighbor(&self, sequence: &str) -> Result<f32, ThermodynamicError> {
-        self.calculate_tm_with_conditions(sequence, &self.database.salt_correction, self.conditions.temperature_k)
+        self.calculate_tm_with_conditions(
+            sequence,
+            &self.database.salt_correction,
+            self.conditions.temperature_k,
+        )
     }
 
     /// 条件指定でのTm値計算
@@ -255,7 +256,9 @@ impl ThermodynamicCalculator {
             let params = if let Some(params) = self.find_dinucleotide_params(dinucleotide) {
                 params
             } else {
-                return Err(ThermodynamicError::UnknownDinucleotide(dinucleotide.to_string()));
+                return Err(ThermodynamicError::UnknownDinucleotide(
+                    dinucleotide.to_string(),
+                ));
             };
 
             total_enthalpy += params.delta_h;
@@ -263,7 +266,8 @@ impl ThermodynamicCalculator {
         }
 
         // 塩濃度補正
-        let corrected_entropy = self.apply_salt_correction(total_entropy, sequence.len(), salt_conditions);
+        let corrected_entropy =
+            self.apply_salt_correction(total_entropy, sequence.len(), salt_conditions);
 
         // Tm計算: Tm = ΔH / ΔS (エントロピーはcal/mol·Kからkcal/mol·Kに変換)
         if corrected_entropy != 0.0 {
@@ -275,7 +279,11 @@ impl ThermodynamicCalculator {
     }
 
     /// ギブス自由エネルギー計算
-    pub fn calculate_delta_g(&self, sequence: &str, temperature_k: f32) -> Result<f32, ThermodynamicError> {
+    pub fn calculate_delta_g(
+        &self,
+        sequence: &str,
+        temperature_k: f32,
+    ) -> Result<f32, ThermodynamicError> {
         if sequence.len() < 2 {
             return Err(ThermodynamicError::SequenceTooShort);
         }
@@ -299,13 +307,13 @@ impl ThermodynamicCalculator {
         // 二核酸対の寄与
         for i in 0..sequence.len() - 1 {
             let dinucleotide = &sequence[i..i + 2];
-            let reverse_complement = self.reverse_complement_dinucleotide(dinucleotide)?;
-            let key = format!("{}/{}", dinucleotide, reverse_complement);
 
-            if let Some(params) = self.database.get_nearest_neighbor(&key) {
+            if let Some(params) = self.find_dinucleotide_params(dinucleotide) {
                 total_delta_g += params.delta_g(temperature_k);
             } else {
-                return Err(ThermodynamicError::UnknownDinucleotide(dinucleotide.to_string()));
+                return Err(ThermodynamicError::UnknownDinucleotide(
+                    dinucleotide.to_string(),
+                ));
             }
         }
 
@@ -313,7 +321,10 @@ impl ThermodynamicCalculator {
     }
 
     /// セルフダイマー評価（改良版）
-    pub fn calculate_enhanced_self_dimer(&self, sequence: &str) -> Result<SelfDimerAnalysis, ThermodynamicError> {
+    pub fn calculate_enhanced_self_dimer(
+        &self,
+        sequence: &str,
+    ) -> Result<SelfDimerAnalysis, ThermodynamicError> {
         let sequence = sequence.to_uppercase();
         let mut max_score = 0.0f32;
         let mut best_alignment = None;
@@ -321,7 +332,8 @@ impl ThermodynamicCalculator {
 
         // 全ての可能なアライメントをチェック
         for offset in 1..sequence.len() {
-            let (score, mismatches) = self.calculate_alignment_score(&sequence, &sequence, offset)?;
+            let (score, mismatches) =
+                self.calculate_alignment_score(&sequence, &sequence, offset)?;
 
             alignments.push(AlignmentResult {
                 offset,
@@ -330,7 +342,8 @@ impl ThermodynamicCalculator {
                 length: sequence.len() - offset,
             });
 
-            if score < max_score { // より負の値（安定）を探す
+            if score < max_score {
+                // より負の値（安定）を探す
                 max_score = score;
                 best_alignment = Some(offset);
             }
@@ -339,7 +352,8 @@ impl ThermodynamicCalculator {
         // 逆相補も考慮
         let reverse_complement = self.reverse_complement(sequence.as_str())?;
         for offset in 1..sequence.len() {
-            let (score, mismatches) = self.calculate_alignment_score(&sequence, &reverse_complement, offset)?;
+            let (score, mismatches) =
+                self.calculate_alignment_score(&sequence, &reverse_complement, offset)?;
 
             alignments.push(AlignmentResult {
                 offset,
@@ -363,7 +377,10 @@ impl ThermodynamicCalculator {
     }
 
     /// ヘアピン構造評価（改良版）
-    pub fn calculate_enhanced_hairpin(&self, sequence: &str) -> Result<HairpinAnalysis, ThermodynamicError> {
+    pub fn calculate_enhanced_hairpin(
+        &self,
+        sequence: &str,
+    ) -> Result<HairpinAnalysis, ThermodynamicError> {
         let sequence = sequence.to_uppercase();
         let mut hairpins = Vec::new();
 
@@ -386,7 +403,8 @@ impl ThermodynamicCalculator {
 
                         if stem5 == stem3_rc {
                             let loop_seq = &sequence[loop_start..loop_start + loop_size];
-                            let score = self.calculate_hairpin_score(stem_length, loop_size, loop_seq)?;
+                            let score =
+                                self.calculate_hairpin_score(stem_length, loop_size, loop_seq)?;
 
                             hairpins.push(HairpinStructure {
                                 start_pos: start,
@@ -405,7 +423,11 @@ impl ThermodynamicCalculator {
         }
 
         // 最も安定なヘアピンを選択
-        let best_hairpin = hairpins.iter().min_by(|a, b| a.score.partial_cmp(&b.score).unwrap_or(std::cmp::Ordering::Equal));
+        let best_hairpin = hairpins.iter().min_by(|a, b| {
+            a.score
+                .partial_cmp(&b.score)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
         let min_score = best_hairpin.map(|h| h.score).unwrap_or(0.0);
 
         Ok(HairpinAnalysis {
@@ -417,7 +439,11 @@ impl ThermodynamicCalculator {
     }
 
     /// ヘテロダイマー評価（改良版）
-    pub fn calculate_enhanced_hetero_dimer(&self, primer1: &str, primer2: &str) -> Result<HeteroDimerAnalysis, ThermodynamicError> {
+    pub fn calculate_enhanced_hetero_dimer(
+        &self,
+        primer1: &str,
+        primer2: &str,
+    ) -> Result<HeteroDimerAnalysis, ThermodynamicError> {
         let seq1 = primer1.to_uppercase();
         let seq2 = primer2.to_uppercase();
         let mut max_score = 0.0f32;
@@ -473,28 +499,63 @@ impl ThermodynamicCalculator {
             return None;
         }
 
-        let reverse_complement = match self.reverse_complement_dinucleotide(dinucleotide) {
-            Ok(rc) => rc,
+        // Watson-Crick complementary dinucleotide (not reverse complement)
+        let watson_crick_complement = match self.watson_crick_complement_dinucleotide(dinucleotide)
+        {
+            Ok(wc) => wc,
             Err(_) => return None,
         };
 
-        // 直接検索
-        let key1 = format!("{}/{}", dinucleotide, reverse_complement);
+        // 直接検索: dinucleotide/watson_crick_complement
+        let key1 = format!("{}/{}", dinucleotide, watson_crick_complement);
         if let Some(params) = self.database.get_nearest_neighbor(&key1) {
             return Some(params);
         }
 
-        // 逆向きで検索（例：AT/TAとTA/ATは相補的）
-        let key2 = format!("{}/{}", reverse_complement, dinucleotide);
+        // 逆向きで検索: watson_crick_complement/dinucleotide
+        let key2 = format!("{}/{}", watson_crick_complement, dinucleotide);
         if let Some(params) = self.database.get_nearest_neighbor(&key2) {
             return Some(params);
         }
+
         None
     }
 
-    fn reverse_complement_dinucleotide(&self, dinucleotide: &str) -> Result<String, ThermodynamicError> {
+    /// Watson-Crick complementary dinucleotide (no reversal, just base pairing)
+    fn watson_crick_complement_dinucleotide(
+        &self,
+        dinucleotide: &str,
+    ) -> Result<String, ThermodynamicError> {
         if dinucleotide.len() != 2 {
-            return Err(ThermodynamicError::InvalidSequence(dinucleotide.to_string()));
+            return Err(ThermodynamicError::InvalidSequence(
+                dinucleotide.to_string(),
+            ));
+        }
+
+        let complement = |base: char| -> Result<char, ThermodynamicError> {
+            match base {
+                'A' => Ok('T'),
+                'T' => Ok('A'),
+                'G' => Ok('C'),
+                'C' => Ok('G'),
+                _ => Err(ThermodynamicError::UnknownBase(base)),
+            }
+        };
+
+        let chars: Vec<char> = dinucleotide.chars().collect();
+        let wc1 = complement(chars[0])?; // First base complement
+        let wc2 = complement(chars[1])?; // Second base complement
+        Ok(format!("{}{}", wc1, wc2))
+    }
+
+    fn reverse_complement_dinucleotide(
+        &self,
+        dinucleotide: &str,
+    ) -> Result<String, ThermodynamicError> {
+        if dinucleotide.len() != 2 {
+            return Err(ThermodynamicError::InvalidSequence(
+                dinucleotide.to_string(),
+            ));
         }
 
         let complement = |base: char| -> Result<char, ThermodynamicError> {
@@ -531,10 +592,16 @@ impl ThermodynamicCalculator {
             .collect::<Result<String, _>>()
     }
 
-    fn apply_salt_correction(&self, entropy: f32, sequence_length: usize, salt: &SaltCorrectionParams) -> f32 {
+    fn apply_salt_correction(
+        &self,
+        entropy: f32,
+        sequence_length: usize,
+        salt: &SaltCorrectionParams,
+    ) -> f32 {
         // 簡易塩濃度補正（SantaLucia model）
         let n = sequence_length as f32;
-        let na_molarity = salt.sodium_concentration + salt.potassium_concentration + salt.other_monovalent;
+        let na_molarity =
+            salt.sodium_concentration + salt.potassium_concentration + salt.other_monovalent;
 
         if na_molarity > 0.0 {
             let salt_correction = 0.368 * n * na_molarity.ln();
@@ -545,9 +612,15 @@ impl ThermodynamicCalculator {
     }
 
     /// 高度な塩濃度補正（NNDB 2024拡張）
-    fn apply_advanced_salt_correction(&self, entropy: f32, sequence_length: usize, salt: &SaltCorrectionParams) -> f32 {
+    fn apply_advanced_salt_correction(
+        &self,
+        entropy: f32,
+        sequence_length: usize,
+        salt: &SaltCorrectionParams,
+    ) -> f32 {
         let n = sequence_length as f32;
-        let na_conc = salt.sodium_concentration + salt.potassium_concentration + salt.other_monovalent;
+        let na_conc =
+            salt.sodium_concentration + salt.potassium_concentration + salt.other_monovalent;
         let mg_conc = salt.magnesium_concentration;
 
         let mut corrected_entropy = entropy;
@@ -576,20 +649,33 @@ impl ThermodynamicCalculator {
     }
 
     /// 融解温度を内部的に計算
-    fn calculate_melting_temperature(&self, delta_h: f32, delta_s: f32) -> f32 {
-        if delta_s == 0.0 { return 0.0; }
+    fn calculate_melting_temperature(
+        &self,
+        delta_h: f32,
+        delta_s: f32,
+        sequence_length: usize,
+    ) -> f32 {
+        if delta_s == 0.0 {
+            return 0.0;
+        }
 
-        // Tm = ΔH / (ΔS + R*ln(C/4)) - 273.15
-        // C = primer concentration
-        let r = 1.987; // cal/mol·K
-        let concentration_term = r * (self.conditions.primer_concentration / 4.0).ln();
+        // Apply salt correction like in calculate_tm_nearest_neighbor
+        let salt_conditions = &self.database.salt_correction;
+        let corrected_entropy =
+            self.apply_salt_correction(delta_s, sequence_length, salt_conditions);
 
-        (delta_h * 1000.0) / (delta_s + concentration_term) - 273.15
+        if corrected_entropy != 0.0 {
+            let tm_k = (delta_h * 1000.0) / corrected_entropy; // ΔSをcal/mol·KからJ/mol·Kに変換
+            tm_k - 273.15 // Kelvinから摂氏に変換
+        } else {
+            0.0
+        }
     }
 
     /// 回文配列（palindrome）判定の改良版
     fn is_palindrome(&self, sequence: &str) -> bool {
-        let complement: String = sequence.chars()
+        let complement: String = sequence
+            .chars()
             .rev()
             .map(|c| match c {
                 'A' => 'T',
@@ -609,7 +695,12 @@ impl ThermodynamicCalculator {
         exp_term / (1.0 + exp_term)
     }
 
-    fn calculate_alignment_score(&self, seq1: &str, seq2: &str, offset: usize) -> Result<(f32, usize), ThermodynamicError> {
+    fn calculate_alignment_score(
+        &self,
+        seq1: &str,
+        seq2: &str,
+        offset: usize,
+    ) -> Result<(f32, usize), ThermodynamicError> {
         let mut score = 0.0f32;
         let mut mismatches = 0usize;
 
@@ -636,10 +727,18 @@ impl ThermodynamicCalculator {
     }
 
     fn is_complementary(&self, base1: char, base2: char) -> bool {
-        matches!((base1, base2), ('A', 'T') | ('T', 'A') | ('G', 'C') | ('C', 'G'))
+        matches!(
+            (base1, base2),
+            ('A', 'T') | ('T', 'A') | ('G', 'C') | ('C', 'G')
+        )
     }
 
-    fn calculate_hairpin_score(&self, stem_length: usize, loop_size: usize, loop_sequence: &str) -> Result<f32, ThermodynamicError> {
+    fn calculate_hairpin_score(
+        &self,
+        stem_length: usize,
+        loop_size: usize,
+        loop_sequence: &str,
+    ) -> Result<f32, ThermodynamicError> {
         // ヘアピンのエネルギー = ステムの安定化 + ループの不安定化
         let stem_stabilization = -2.0 * stem_length as f32; // 概算
 
@@ -747,6 +846,10 @@ mod tests {
         let calculator = ThermodynamicCalculator::new_santalucia_1998();
 
         let result = calculator.calculate_delta_g("ATCG", 310.15);
+        match &result {
+            Ok(_) => println!("Delta G calculation succeeded"),
+            Err(e) => println!("Delta G calculation failed: {:?}", e),
+        }
         assert!(result.is_ok());
     }
 
@@ -758,9 +861,16 @@ mod tests {
         assert!(result.is_ok());
 
         let comp_result = result.unwrap();
+        println!(
+            "Comprehensive calculation Tm: {}",
+            comp_result.melting_temperature
+        );
+        println!("Corrections applied: {:?}", comp_result.corrections_applied);
         assert!(comp_result.melting_temperature > 0.0);
         assert!(!comp_result.corrections_applied.is_empty());
-        assert!(comp_result.formation_probability >= 0.0 && comp_result.formation_probability <= 1.0);
+        assert!(
+            comp_result.formation_probability >= 0.0 && comp_result.formation_probability <= 1.0
+        );
     }
 
     #[test]
@@ -779,7 +889,9 @@ mod tests {
 
         // クラウディング効果により安定化される
         assert!(result2.delta_h < result1.delta_h);
-        assert!(result2.corrections_applied.contains(&"molecular_crowding".to_string()));
+        assert!(result2
+            .corrections_applied
+            .contains(&"molecular_crowding".to_string()));
     }
 
     #[test]
@@ -816,8 +928,8 @@ mod tests {
         assert!(calculator.is_palindrome("GAATTC"));
 
         // 非回文配列
-        assert!(!calculator.is_palindrome("ATGCAT"));
-        assert!(!calculator.is_palindrome("ACGTACGT"));
+        assert!(calculator.is_palindrome("ATGCAT")); // ATGCAT is actually palindromic
+        assert!(!calculator.is_palindrome("AAATTTCCC")); // Non-palindromic sequence
     }
 
     #[test]
@@ -832,8 +944,10 @@ mod tests {
         assert!(breakdown.terminal_effects != 0.0);
 
         // 全体の寄与の合計は概ねdelta_hと一致する
-        let total_contribution = breakdown.nearest_neighbor + breakdown.terminal_effects +
-                                 breakdown.mismatch_penalty + breakdown.loop_structures;
+        let total_contribution = breakdown.nearest_neighbor
+            + breakdown.terminal_effects
+            + breakdown.mismatch_penalty
+            + breakdown.loop_structures;
         assert!((total_contribution - result.delta_h).abs() < 0.1); // 許容誤差内
     }
 
@@ -872,7 +986,9 @@ mod tests {
         let sequence = "ATGCATGC";
 
         let tm_nndb = calc_nndb.calculate_tm_nearest_neighbor(sequence).unwrap();
-        let tm_santalucia = calc_santalucia.calculate_tm_nearest_neighbor(sequence).unwrap();
+        let tm_santalucia = calc_santalucia
+            .calculate_tm_nearest_neighbor(sequence)
+            .unwrap();
 
         // NNDB 2024は高精度パラメータのため、わずかな違いがある
         assert!((tm_nndb - tm_santalucia).abs() < 5.0); // 5°C以内の差
