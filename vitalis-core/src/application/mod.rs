@@ -1,10 +1,10 @@
 // Application layer - Tauri commands and use cases
 use crate::domain::{
-    DetailedStats, SequenceAnalysisService, SequenceRepository, Topology, WindowStats,
     primer::{PrimerDesignParams, PrimerDesignResult, PrimerDesignService},
+    DetailedStats, SequenceAnalysisService, SequenceRepository, Topology, WindowStats,
 };
 use crate::infrastructure::{FileSequenceRepository, GenBankParser};
-use crate::services::{StatsServiceImpl, PrimerDesignServiceImpl};
+use crate::services::{PrimerDesignServiceImpl, StatsServiceImpl};
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 use std::sync::Mutex;

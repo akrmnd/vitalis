@@ -1,6 +1,6 @@
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use chrono::{DateTime, Utc};
 
 /// プライマー設計パラメータ
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -27,9 +27,9 @@ impl Default for PrimerDesignParams {
             tm_optimal: 60.0,
             gc_min: 40.0,
             gc_max: 60.0,
-            max_self_dimer: -5.0,
-            max_hairpin: -3.0,
-            max_hetero_dimer: -5.0,
+            max_self_dimer: -8.0,
+            max_hairpin: -5.0,
+            max_hetero_dimer: -8.0,
         }
     }
 }
@@ -46,6 +46,8 @@ pub struct Primer {
     pub hairpin_score: f32,
     pub three_prime_stability: f32,
     pub direction: PrimerDirection,
+    pub quality_score: f32,
+    pub quality_warnings: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -146,6 +148,26 @@ pub trait PrimerDesignService {
 
     /// マルチプレックス互換性評価
     fn evaluate_multiplex(&self, primers: &[PrimerPair]) -> MultiplexCompatibility;
+
+    /// Nearest Neighbor法によるTm値計算
+    fn calculate_tm_nearest_neighbor(&self, sequence: &str) -> f32;
+
+    /// Wallace法によるTm値計算
+    fn calculate_tm_wallace(&self, sequence: &str) -> f32;
+
+    /// 補助メソッド：二核酸の熱力学パラメータを取得
+    fn get_dinucleotide_parameters(&self, dinucleotide: &str) -> (f32, f32);
+
+    /// 補助メソッド：末端の熱力学パラメータを取得
+    fn get_initiation_parameters(&self, first_base: char, last_base: char) -> (f32, f32);
+
+    /// プライマーペア間の互換性を解析
+    fn analyze_pair_compatibility(
+        &self,
+        pair1: &PrimerPair,
+        pair2: &PrimerPair,
+        warnings: &mut Vec<String>,
+    ) -> f32;
 }
 
 #[cfg(test)]
