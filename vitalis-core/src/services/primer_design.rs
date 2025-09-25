@@ -121,9 +121,9 @@ impl PrimerDesignServiceImpl {
             return false;
         }
 
-        // プライマー間の相互作用をチェック
+        // プライマー間の相互作用をチェック（より負の値=より強い結合=悪い）
         let hetero_dimer = self.calculate_hetero_dimer(&forward.sequence, &reverse.sequence);
-        if hetero_dimer < params.max_hetero_dimer {
+        if hetero_dimer < -params.max_hetero_dimer.abs() {
             return false;
         }
 
