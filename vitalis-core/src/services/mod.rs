@@ -1,6 +1,6 @@
 // Service layer - アプリケーションサービス
-pub mod stats;
 pub mod primer_design;
+pub mod stats;
 
-pub use stats::StatsServiceImpl;
 pub use primer_design::PrimerDesignServiceImpl;
+pub use stats::StatsServiceImpl;

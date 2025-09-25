@@ -49,13 +49,19 @@ interface PrimerPair {
   validation_results: ValidationResults;
 }
 
+interface MultiplexCompatibility {
+  compatibility_matrix: { [key: string]: { [key: string]: number } };
+  warnings: string[];
+  overall_score: number;
+}
+
 interface PrimerDesignResult {
   pairs: PrimerPair[];
   design_params: PrimerDesignParams;
   target_sequence: string;
   target_start: number;
   target_end: number;
-  multiplex_compatibility?: any;
+  multiplex_compatibility?: MultiplexCompatibility;
 }
 
 interface PrimerDesignProps {
@@ -65,14 +71,14 @@ interface PrimerDesignProps {
 const defaultParams: PrimerDesignParams = {
   length_min: 18,
   length_max: 25,
-  tm_min: 55.0,
-  tm_max: 65.0,
+  tm_min: 50.0,    // Relaxed from 55.0
+  tm_max: 70.0,    // Relaxed from 65.0
   tm_optimal: 60.0,
-  gc_min: 40.0,
-  gc_max: 60.0,
-  max_self_dimer: -5.0,
-  max_hairpin: -3.0,
-  max_hetero_dimer: -5.0,
+  gc_min: 30.0,    // Relaxed from 40.0
+  gc_max: 70.0,    // Relaxed from 60.0
+  max_self_dimer: -15.0,  // More permissive (allow stronger self-dimers)
+  max_hairpin: -12.0,     // More permissive (allow stronger hairpins)
+  max_hetero_dimer: -20.0, // Much more permissive (allow stronger hetero-dimers)
 };
 
 export const PrimerDesign: React.FC<PrimerDesignProps> = ({ sequenceId }) => {
@@ -382,7 +388,7 @@ export const PrimerDesign: React.FC<PrimerDesignProps> = ({ sequenceId }) => {
 
                   {/* Validation Results */}
                   <div className="mt-3 pt-3 border-t border-gray-200">
-                    <div className="flex items-center space-x-4 text-sm">
+                    <div className="flex items-center space-x-4 text-sm mb-2">
                       <span className={`px-2 py-1 rounded ${
                         pair.validation_results.self_dimer_check
                           ? 'bg-green-100 text-green-800'
@@ -397,15 +403,127 @@ export const PrimerDesign: React.FC<PrimerDesignProps> = ({ sequenceId }) => {
                       }`}>
                         {pair.validation_results.hairpin_check ? '✓' : '✗'} Hairpin
                       </span>
-                      {pair.validation_results.warnings.length > 0 && (
-                        <span className="px-2 py-1 rounded bg-yellow-100 text-yellow-800">
-                          ⚠️ {pair.validation_results.warnings.length} warnings
+                      {pair.validation_results.hetero_dimer_check !== undefined && (
+                        <span className={`px-2 py-1 rounded ${
+                          pair.validation_results.hetero_dimer_check
+                            ? 'bg-green-100 text-green-800'
+                            : 'bg-red-100 text-red-800'
+                        }`}>
+                          {pair.validation_results.hetero_dimer_check ? '✓' : '✗'} Cross-Dimer
+                        </span>
+                      )}
+                      {pair.validation_results.specificity !== undefined && (
+                        <span className="px-2 py-1 rounded bg-blue-100 text-blue-800">
+                          Specificity: {(pair.validation_results.specificity * 100).toFixed(1)}%
                         </span>
                       )}
                     </div>
+
+                    {/* Individual Warnings */}
+                    {pair.validation_results.warnings.length > 0 && (
+                      <div className="bg-yellow-50 border border-yellow-200 rounded p-2">
+                        <div className="text-xs font-medium text-yellow-800 mb-1">⚠️ Validation Warnings:</div>
+                        <ul className="text-xs text-yellow-700 space-y-1">
+                          {pair.validation_results.warnings.map((warning, wIndex) => (
+                            <li key={wIndex} className="flex items-start">
+                              <span className="text-yellow-600 mr-1">•</span>
+                              {warning}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
                   </div>
                 </div>
               ))}
+
+              {/* Multiplex Compatibility Analysis */}
+              {designResult.multiplex_compatibility && designResult.pairs.length > 1 && (
+                <div className="border-2 border-purple-200 bg-purple-50 rounded-lg p-4">
+                  <h4 className="font-semibold text-purple-900 mb-3 flex items-center">
+                    <span className="text-lg mr-2">🧪</span>
+                    Multiplex Compatibility Analysis
+                  </h4>
+
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    {/* Overall Score */}
+                    <div className="bg-white rounded-lg p-3">
+                      <div className="text-sm font-medium text-gray-700 mb-2">Overall Compatibility Score</div>
+                      <div className="flex items-center">
+                        <div className={`text-2xl font-bold ${
+                          designResult.multiplex_compatibility.overall_score >= 0.8
+                            ? 'text-green-600'
+                            : designResult.multiplex_compatibility.overall_score >= 0.6
+                            ? 'text-yellow-600'
+                            : 'text-red-600'
+                        }`}>
+                          {(designResult.multiplex_compatibility.overall_score * 100).toFixed(0)}%
+                        </div>
+                        <div className="ml-2 text-xs text-gray-500">
+                          {designResult.multiplex_compatibility.overall_score >= 0.8
+                            ? '(Excellent)'
+                            : designResult.multiplex_compatibility.overall_score >= 0.6
+                            ? '(Good)'
+                            : '(Poor)'}
+                        </div>
+                      </div>
+                      <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
+                        <div
+                          className={`h-2 rounded-full ${
+                            designResult.multiplex_compatibility.overall_score >= 0.8
+                              ? 'bg-green-500'
+                              : designResult.multiplex_compatibility.overall_score >= 0.6
+                              ? 'bg-yellow-500'
+                              : 'bg-red-500'
+                          }`}
+                          style={{ width: `${designResult.multiplex_compatibility.overall_score * 100}%` }}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Compatibility Matrix Summary */}
+                    <div className="bg-white rounded-lg p-3">
+                      <div className="text-sm font-medium text-gray-700 mb-2">Pairwise Compatibility</div>
+                      <div className="text-xs text-gray-600 mb-2">
+                        Compatibility between all primer pair combinations:
+                      </div>
+                      <div className="grid grid-cols-2 gap-2 text-xs">
+                        {Object.entries(designResult.multiplex_compatibility.compatibility_matrix).slice(0, 4).map(([pairId, compatMap]) =>
+                          Object.entries(compatMap).slice(0, 1).map(([otherPairId, score]) => (
+                            <div key={`${pairId}-${otherPairId}`} className="flex justify-between bg-gray-50 px-2 py-1 rounded">
+                              <span className="truncate">{pairId} ↔ {otherPairId}</span>
+                              <span className={`font-medium ${
+                                score >= 0.8 ? 'text-green-600' : score >= 0.6 ? 'text-yellow-600' : 'text-red-600'
+                              }`}>
+                                {(score * 100).toFixed(0)}%
+                              </span>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Multiplex Warnings */}
+                  {designResult.multiplex_compatibility.warnings.length > 0 && (
+                    <div className="mt-3 bg-yellow-50 border border-yellow-200 rounded p-3">
+                      <div className="text-sm font-medium text-yellow-800 mb-2">🚨 Multiplex Warnings:</div>
+                      <ul className="text-sm text-yellow-700 space-y-1">
+                        {designResult.multiplex_compatibility.warnings.map((warning, wIndex) => (
+                          <li key={wIndex} className="flex items-start">
+                            <span className="text-yellow-600 mr-1 mt-0.5">•</span>
+                            <span>{warning}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  <div className="mt-3 text-xs text-purple-600">
+                    💡 Tip: Higher compatibility scores indicate better suitability for multiplex PCR
+                  </div>
+                </div>
+              )}
 
               {designResult.pairs.length > 5 && (
                 <div className="text-center py-2 text-gray-500">

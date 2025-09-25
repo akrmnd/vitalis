@@ -13,7 +13,7 @@
     "windows": [
       {
         "title": "Vitalis Studio",
-        "width": 2400,
+        "width": 1200,
         "height": 1800,
         "resizable": true,
         "fullscreen": false
